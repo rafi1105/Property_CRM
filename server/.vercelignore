@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+
+# Environment files (use Vercel env vars instead)
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+
+# Uploads (if stored locally, use cloud storage instead)
+uploads/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# Documentation (optional, comment out if you want to include)
+# *.md
+README.md
+
+# Scripts not needed in production
+createRafiAdmin.js
+encode.js
+fixAndCreateAdmin.js
+migratePropertyCodes.js
+migrateToFriendlyCodes.js
+seedDhakaProperties.js
+seedSuperAdmin.js
+check-env.js

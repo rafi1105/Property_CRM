@@ -1,0 +1,6 @@
+# This folder contains uploaded property images
+# Do not delete this folder
+
+# Ignore all files except .gitkeep
+*
+!.gitkeep
