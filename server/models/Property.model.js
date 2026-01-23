@@ -135,6 +135,12 @@ const propertySchema = new mongoose.Schema({
     type: String,
     enum: ['available', 'under_contract', 'sold', 'rented'],
     default: 'available'
+  },
+  // Private note - internal/confidential information not visible to customers
+  privateNote: {
+    type: String,
+    trim: true,
+    default: ''
   }
 }, {
   timestamps: true

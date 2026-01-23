@@ -24,8 +24,12 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['super_admin', 'admin', 'agent', 'user'],
+    enum: ['super_admin', 'admin', 'zonal_agent', 'agent', 'user'],
     default: 'user'
+  },
+  assignedZone: {
+    type: String,
+    trim: true
   },
   phone: {
     type: String,

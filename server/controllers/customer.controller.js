@@ -438,3 +438,159 @@ export const getMyCustomers = async (req, res) => {
     });
   }
 };
+
+// @desc    Get due follow-ups count
+// @route   GET /api/customers/follow-ups/due/count
+// @access  Agent/Admin/Super Admin
+export const getDueFollowUpsCount = async (req, res) => {
+  try {
+    const query = { isFollowUpDue: true };
+    
+    // Agent sees only their customers
+    if (req.user.role === 'agent') {
+      query.$or = [
+        { assignedAgent: req.user._id },
+        { addedBy: req.user._id }
+      ];
+    }
+
+    const count = await Customer.countDocuments(query);
+
+    res.json({
+      success: true,
+      count
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error getting due follow-ups count',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get customers with due follow-ups
+// @route   GET /api/customers/follow-ups/due
+// @access  Agent/Admin/Super Admin
+export const getDueFollowUps = async (req, res) => {
+  try {
+    const query = { isFollowUpDue: true };
+    
+    // Agent sees only their customers
+    if (req.user.role === 'agent') {
+      query.$or = [
+        { assignedAgent: req.user._id },
+        { addedBy: req.user._id }
+      ];
+    }
+
+    const customers = await Customer.find(query)
+      .populate('addedBy', 'name email')
+      .populate('assignedAgent', 'name email')
+      .sort('nextFollowUpDate');
+
+    res.json({
+      success: true,
+      customers,
+      count: customers.length
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching due follow-ups',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Move customer to different zone/thana/agent
+// @route   PUT /api/customers/:id/move
+// @access  Admin/Super Admin
+export const moveCustomer = async (req, res) => {
+  try {
+    const { zone, thana, agentId } = req.body;
+
+    const updateData = {};
+    if (zone) updateData.customerZone = zone;
+    if (thana) updateData.customerThana = thana;
+    if (agentId) updateData.assignedAgent = agentId;
+
+    const customer = await Customer.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true, runValidators: true }
+    )
+      .populate('addedBy', 'name email')
+      .populate('assignedAgent', 'name email');
+
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Customer not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Customer moved successfully',
+      customer
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error moving customer',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get foreign/other agents' customers (for search)
+// @route   GET /api/customers/foreign
+// @access  Agent/Admin/Super Admin
+export const getForeignCustomers = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      search
+    } = req.query;
+
+    // Build query to exclude own customers
+    const query = {
+      assignedAgent: { $ne: req.user._id },
+      addedBy: { $ne: req.user._id }
+    };
+
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const customers = await Customer.find(query)
+      .populate('addedBy', 'name email')
+      .populate('assignedAgent', 'name email')
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .sort('-createdAt')
+      .exec();
+
+    const count = await Customer.countDocuments(query);
+
+    res.json({
+      success: true,
+      customers,
+      totalPages: Math.ceil(count / limit),
+      currentPage: page,
+      total: count
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching foreign customers',
+      error: error.message
+    });
+  }
+};

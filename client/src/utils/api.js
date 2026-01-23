@@ -71,11 +71,15 @@ export const customerAPI = {
   getAll: (params) => api.get('/customers', { params }),
   getById: (id) => api.get(`/customers/${id}`),
   getMyCustomers: () => api.get('/customers/my/customers'),
+  getForeignCustomers: (params) => api.get('/customers/foreign/customers', { params }),
+  getDueFollowUpsCount: () => api.get('/customers/follow-ups/due/count'),
+  getDueFollowUps: () => api.get('/customers/follow-ups/due'),
   create: (data) => api.post('/customers', data),
   update: (id, data) => api.put(`/customers/${id}`, data),
   delete: (id) => api.delete(`/customers/${id}`),
   assignAgent: (id, agentId) => api.patch(`/customers/${id}/assign-agent`, { agentId }),
-  addNote: (id, note) => api.post(`/customers/${id}/notes`, { note })
+  addNote: (id, note) => api.post(`/customers/${id}/notes`, { note }),
+  moveCustomer: (id, data) => api.put(`/customers/${id}/move`, data)
 };
 
 // Task APIs
@@ -118,6 +122,18 @@ export const notificationAPI = {
   markAllAsRead: () => api.patch('/notifications/read-all'),
   delete: (id) => api.delete(`/notifications/${id}`),
   clearRead: () => api.delete('/notifications/clear-read')
+};
+
+// Visit APIs
+export const visitAPI = {
+  getAll: (params) => api.get('/visits', { params }),
+  getById: (id) => api.get(`/visits/${id}`),
+  create: (data) => api.post('/visits', data),
+  update: (id, data) => api.put(`/visits/${id}`, data),
+  delete: (id) => api.delete(`/visits/${id}`),
+  getTodaysVisits: (agentId) => api.get('/visits/stats/today', { params: { agentId } }),
+  getMonthlyVisits: (agentId) => api.get('/visits/stats/monthly', { params: { agentId } }),
+  getTotalVisits: (agentId) => api.get('/visits/stats/total', { params: { agentId } })
 };
 
 // Upload APIs - Uses PHP script directly for Hostinger storage

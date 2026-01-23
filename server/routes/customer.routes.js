@@ -8,7 +8,11 @@ import {
   deleteCustomer,
   assignAgent,
   addNote,
-  getMyCustomers
+  getMyCustomers,
+  getDueFollowUpsCount,
+  getDueFollowUps,
+  moveCustomer,
+  getForeignCustomers
 } from '../controllers/customer.controller.js';
 import { authenticate, adminOnly, agentAndAbove } from '../middleware/auth.middleware.js';
 
@@ -17,6 +21,9 @@ const router = express.Router();
 // Agent and above routes
 router.get('/', authenticate, agentAndAbove, getAllCustomers);
 router.get('/my/customers', authenticate, agentAndAbove, getMyCustomers);
+router.get('/foreign/customers', authenticate, agentAndAbove, getForeignCustomers);
+router.get('/follow-ups/due/count', authenticate, agentAndAbove, getDueFollowUpsCount);
+router.get('/follow-ups/due', authenticate, agentAndAbove, getDueFollowUps);
 router.get('/:id', authenticate, agentAndAbove, getCustomerById);
 
 router.post('/', authenticate, agentAndAbove, [
@@ -35,5 +42,6 @@ router.delete('/:id', authenticate, adminOnly, deleteCustomer);
 router.patch('/:id/assign-agent', authenticate, adminOnly, [
   body('agentId').notEmpty().withMessage('Agent ID is required')
 ], assignAgent);
+router.put('/:id/move', authenticate, adminOnly, moveCustomer);
 
 export default router;

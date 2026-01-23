@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { dashboardAPI, propertyAPI } from '../utils/api';
+import { dashboardAPI, propertyAPI, visitAPI, customerAPI } from '../utils/api';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../components/DashboardLayout';
 import { Dialog, Transition } from '@headlessui/react';
@@ -39,6 +39,12 @@ const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [showVisitModal, setShowVisitModal] = useState(false);
+  const [showFollowUpModal, setShowFollowUpModal] = useState(false);
+  const [visits, setVisits] = useState([]);
+  const [visitStats, setVisitStats] = useState({ today: 0, monthly: 0, total: 0 });
+  const [dueFollowUpsCount, setDueFollowUpsCount] = useState(0);
+  const [dueFollowUps, setDueFollowUps] = useState([]);
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
@@ -47,9 +53,22 @@ const AdminDashboard = () => {
     phone: '',
     address: ''
   });
+  const [visitForm, setVisitForm] = useState({
+    customerId: '',
+    propertyId: '',
+    visitDate: new Date().toISOString().split('T')[0],
+    status: 'completed',
+    notes: '',
+    feedback: '',
+    customerInterest: 'interested',
+    nextFollowUp: '',
+    followUpAction: ''
+  });
 
   useEffect(() => {
     fetchDashboardData();
+    fetchVisitData();
+    fetchFollowUps();
   }, [user]);
 
   const fetchDashboardData = async () => {
@@ -82,6 +101,86 @@ const AdminDashboard = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchVisitData = async () => {
+    try {
+      const agentId = user.role === 'agent' ? user._id : undefined;
+      
+      // Get visit statistics
+      if (stats?.visits) {
+        setVisitStats({
+          today: stats.visits.todaysVisits || 0,
+          monthly: stats.visits.monthlyVisits || 0,
+          total: stats.visits.totalVisits || 0
+        });
+      } else {
+        const [todayRes, monthlyRes, totalRes] = await Promise.all([
+          visitAPI.getTodaysVisits(agentId),
+          visitAPI.getMonthlyVisits(agentId),
+          visitAPI.getTotalVisits(agentId)
+        ]);
+        
+        setVisitStats({
+          today: todayRes.data.count || 0,
+          monthly: monthlyRes.data.count || 0,
+          total: totalRes.data.count || 0
+        });
+      }
+      
+      // Get recent visits
+      const visitsResponse = await visitAPI.getAll({ limit: 10, agentId });
+      setVisits(visitsResponse.data.visits || []);
+    } catch (error) {
+      console.error('Error fetching visit data:', error);
+    }
+  };
+
+  const handleAddVisit = async (e) => {
+    e.preventDefault();
+    try {
+      await visitAPI.create(visitForm);
+      toast.success('Visit recorded successfully!');
+      setShowVisitModal(false);
+      resetVisitForm();
+      fetchVisitData();
+      fetchDashboardData();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to record visit');
+    }
+  };
+
+  const fetchFollowUps = async () => {
+    try {
+      const countRes = await customerAPI.getDueFollowUpsCount();
+      setDueFollowUpsCount(countRes.data.count || 0);
+    } catch (error) {
+      console.error('Error fetching follow-ups count:', error);
+    }
+  };
+
+  const loadDueFollowUps = async () => {
+    try {
+      const response = await customerAPI.getDueFollowUps();
+      setDueFollowUps(response.data.customers || []);
+      setShowFollowUpModal(true);
+    } catch (error) {
+      toast.error('Failed to load due follow-ups');
+    }
+  };
+
+  const resetVisitForm = () => {
+    setVisitForm({
+      customerId: '',
+      propertyId: '',
+      visitDate: new Date().toISOString().split('T')[0],
+      status: 'completed',
+      notes: '',
+      feedback: '',
+      customerInterest: 'interested',
+      nextFollowUp: '',
+      followUpAction: ''
+    });
   };
 
   const handleAddUser = async (e) => {
@@ -151,6 +250,36 @@ const AdminDashboard = () => {
 
   return (
     <DashboardLayout title="Dashboard" subtitle={`Welcome back, ${user?.name}!`}>
+      {/* Follow-up Notification Banner */}
+      {dueFollowUpsCount > 0 && (
+        <div className="mb-6 bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl p-4 shadow-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                <ExclamationCircleIcon className="w-7 h-7 text-white" />
+              </div>
+              <div className="text-white">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  Follow-up Required
+                  <span className="inline-flex items-center justify-center w-8 h-8 bg-white text-red-600 rounded-full text-sm font-bold">
+                    {dueFollowUpsCount}
+                  </span>
+                </h3>
+                <p className="text-sm text-white/90">
+                  You have {dueFollowUpsCount} customer{dueFollowUpsCount !== 1 ? 's' : ''} that need follow-up
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={loadDueFollowUps}
+              className="px-5 py-2.5 bg-white text-red-600 rounded-xl hover:bg-white/90 transition-all font-medium"
+            >
+              View All
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {/* Total Properties */}
@@ -214,6 +343,108 @@ const AdminDashboard = () => {
         </div>
       </div>
 
+      {/* Visit Done Section */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-gray-900">Visit Done</h2>
+          <button
+            onClick={() => setShowVisitModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:shadow-green-500/30 transition-all font-medium"
+          >
+            <PlusIcon className="w-5 h-5" />
+            Record Visit
+          </button>
+        </div>
+
+        {/* Visit Statistics */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg">
+            <div className="flex items-center justify-between mb-2">
+              <CalendarDaysIcon className="w-8 h-8 opacity-80" />
+              <CheckCircleIcon className="w-6 h-6 opacity-60" />
+            </div>
+            <h3 className="text-3xl font-bold">{visitStats.today}</h3>
+            <p className="text-blue-100 text-sm mt-1">Today's Visits</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-6 text-white shadow-lg">
+            <div className="flex items-center justify-between mb-2">
+              <CalendarDaysIcon className="w-8 h-8 opacity-80" />
+              <ClockIcon className="w-6 h-6 opacity-60" />
+            </div>
+            <h3 className="text-3xl font-bold">{visitStats.monthly}</h3>
+            <p className="text-indigo-100 text-sm mt-1">This Month's Visits</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
+            <div className="flex items-center justify-between mb-2">
+              <ChartBarIcon className="w-8 h-8 opacity-80" />
+              <ExclamationCircleIcon className="w-6 h-6 opacity-60" />
+            </div>
+            <h3 className="text-3xl font-bold">{visitStats.total}</h3>
+            <p className="text-purple-100 text-sm mt-1">Total Visits</p>
+          </div>
+        </div>
+
+        {/* Recent Visits List */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <h3 className="font-semibold text-gray-900">Recent Visits</h3>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {visits.length > 0 ? (
+              visits.slice(0, 5).map((visit) => (
+                <div key={visit._id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900">{visit.customer?.name || 'Unknown Customer'}</h4>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {visit.property ? `Property: ${visit.property.name}` : 'No property specified'}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {new Date(visit.visitDate).toLocaleDateString()} - {visit.agent?.name || 'Unknown Agent'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        visit.status === 'completed' ? 'bg-green-100 text-green-700' :
+                        visit.status === 'scheduled' ? 'bg-blue-100 text-blue-700' :
+                        visit.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                        'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {visit.status}
+                      </span>
+                      {visit.customerInterest && (
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          visit.customerInterest === 'very_interested' ? 'bg-purple-100 text-purple-700' :
+                          visit.customerInterest === 'interested' ? 'bg-blue-100 text-blue-700' :
+                          visit.customerInterest === 'not_interested' ? 'bg-gray-100 text-gray-700' :
+                          'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {visit.customerInterest.replace('_', ' ')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="px-6 py-12 text-center text-gray-400">
+                <CalendarDaysIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>No visits recorded yet</p>
+              </div>
+            )}
+          </div>
+          {visits.length > 5 && (
+            <div className="px-6 py-3 bg-gray-50 text-center">
+              <button className="text-sm text-purple-600 hover:text-purple-700 font-medium">
+                View all visits →
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* Activity Chart */}
@@ -229,7 +460,7 @@ const AdminDashboard = () => {
             </select>
           </div>
           <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <AreaChart data={monthlyData}>
                 <defs>
                   <linearGradient id="colorProperties" x1="0" y1="0" x2="0" y2="1">
@@ -263,7 +494,7 @@ const AdminDashboard = () => {
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
           <h3 className="text-lg font-semibold text-gray-900 mb-6">Property Types</h3>
           <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <PieChart>
                 <Pie
                   data={propertyTypeData}
@@ -529,6 +760,156 @@ const AdminDashboard = () => {
                     >
                       Create User
                     </button>
+                  </form>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* Add Visit Modal */}
+      <Transition appear show={showVisitModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setShowVisitModal(false)}>
+          <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
+                <Dialog.Panel className="w-full max-w-2xl bg-white rounded-2xl p-6 shadow-xl">
+                  <div className="flex items-center justify-between mb-6">
+                    <Dialog.Title className="text-xl font-semibold text-gray-900">Record Visit</Dialog.Title>
+                    <button onClick={() => setShowVisitModal(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-100">
+                      <XMarkIcon className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleAddVisit} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Customer ID *</label>
+                        <input
+                          type="text"
+                          required
+                          value={visitForm.customerId}
+                          onChange={(e) => setVisitForm({...visitForm, customerId: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
+                          placeholder="Enter customer ID"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Property ID (Optional)</label>
+                        <input
+                          type="text"
+                          value={visitForm.propertyId}
+                          onChange={(e) => setVisitForm({...visitForm, propertyId: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
+                          placeholder="Enter property ID"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Visit Date *</label>
+                        <input
+                          type="date"
+                          required
+                          value={visitForm.visitDate}
+                          onChange={(e) => setVisitForm({...visitForm, visitDate: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                        <select
+                          value={visitForm.status}
+                          onChange={(e) => setVisitForm({...visitForm, status: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
+                        >
+                          <option value="completed">Completed</option>
+                          <option value="scheduled">Scheduled</option>
+                          <option value="cancelled">Cancelled</option>
+                          <option value="rescheduled">Rescheduled</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Customer Interest</label>
+                        <select
+                          value={visitForm.customerInterest}
+                          onChange={(e) => setVisitForm({...visitForm, customerInterest: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
+                        >
+                          <option value="very_interested">Very Interested</option>
+                          <option value="interested">Interested</option>
+                          <option value="not_interested">Not Interested</option>
+                          <option value="need_to_decide">Need to Decide</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Next Follow-up Date</label>
+                        <input
+                          type="date"
+                          value={visitForm.nextFollowUp}
+                          onChange={(e) => setVisitForm({...visitForm, nextFollowUp: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
+                          min={new Date().toISOString().split('T')[0]}
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Follow-up Action</label>
+                        <input
+                          type="text"
+                          value={visitForm.followUpAction}
+                          onChange={(e) => setVisitForm({...visitForm, followUpAction: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
+                          placeholder="e.g., Call, Visit, Email"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                        <textarea
+                          rows={3}
+                          value={visitForm.notes}
+                          onChange={(e) => setVisitForm({...visitForm, notes: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 resize-none"
+                          placeholder="Visit notes..."
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Feedback</label>
+                        <textarea
+                          rows={3}
+                          value={visitForm.feedback}
+                          onChange={(e) => setVisitForm({...visitForm, feedback: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 resize-none"
+                          placeholder="Customer feedback..."
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-4">
+                      <button
+                        type="button"
+                        onClick={() => setShowVisitModal(false)}
+                        className="px-5 py-2.5 text-gray-700 hover:bg-gray-100 rounded-xl font-medium transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-5 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:shadow-green-500/30 transition-all font-medium"
+                      >
+                        Record Visit
+                      </button>
+                    </div>
                   </form>
                 </Dialog.Panel>
               </Transition.Child>

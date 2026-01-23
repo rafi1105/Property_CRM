@@ -53,6 +53,7 @@ const PropertyManagement = () => {
     bedrooms: '',
     bathrooms: '',
     description: '',
+    privateNote: '',
     features: [],
     location: { zone: '', thana: '', area: '', address: '' },
     images: [],
@@ -580,6 +581,22 @@ const PropertyManagement = () => {
                           className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 resize-none"
                           placeholder="Property description"
                         />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Private Note (Confidential - Not visible to customers)
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={formData.privateNote || ''}
+                          onChange={(e) => setFormData({...formData, privateNote: e.target.value})}
+                          className="w-full px-4 py-3 bg-yellow-50 border border-yellow-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 text-gray-900 resize-none"
+                          placeholder="Internal notes about this property (only visible to staff)"
+                        />
+                        <p className="text-xs text-yellow-600 mt-1">
+                          ⚠️ This note is for internal use only and will not be visible to customers
+                        </p>
                       </div>
 
                       <div className="md:col-span-2">

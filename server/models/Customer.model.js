@@ -93,6 +93,26 @@ const customerSchema = new mongoose.Schema({
     type: String,
     enum: ['website', 'referral', 'social_media', 'walk_in', 'call', 'other'],
     default: 'website'
+  },
+  // Reference tracking - who referred this customer
+  referredBy: {
+    type: String,
+    trim: true
+  },
+  // Visit tracking
+  visits: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Visit'
+  }],
+  // Next follow-up action
+  nextFollowUpAction: {
+    type: String,
+    trim: true
+  },
+  // Follow-up status tracking
+  isFollowUpDue: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true
@@ -102,6 +122,19 @@ const customerSchema = new mongoose.Schema({
 customerSchema.index({ name: 'text', email: 'text', phone: 'text' });
 customerSchema.index({ status: 1, priority: 1 });
 customerSchema.index({ assignedAgent: 1 });
+customerSchema.index({ isFollowUpDue: 1, nextFollowUpDate: 1 });
+
+// Pre-save hook to update isFollowUpDue based on nextFollowUpDate
+customerSchema.pre('save', function(next) {
+  if (this.nextFollowUpDate) {
+    const now = new Date();
+    const followUpDate = new Date(this.nextFollowUpDate);
+    this.isFollowUpDue = followUpDate <= now;
+  } else {
+    this.isFollowUpDue = false;
+  }
+  next();
+});
 
 const Customer = mongoose.model('Customer', customerSchema);
 

@@ -3,6 +3,7 @@ import Customer from '../models/Customer.model.js';
 import Task from '../models/Task.model.js';
 import Agent from '../models/Agent.model.js';
 import User from '../models/User.model.js';
+import Visit from '../models/Visit.model.js';
 
 // @desc    Get dashboard stats (role-based)
 // @route   GET /api/dashboard/stats
@@ -118,7 +119,9 @@ async function getSuperAdminStatsData() {
     propertiesByType,
     propertiesByStatus,
     customersByStatus,
-    monthlyStats
+    monthlyStats,
+    totalVisits,
+    monthlyVisits
   ] = await Promise.all([
     Property.countDocuments(),
     Property.countDocuments({ publishedToFrontend: true }),
@@ -133,7 +136,9 @@ async function getSuperAdminStatsData() {
     getPropertiesByType(),
     getPropertiesByStatus(),
     getCustomersByStatus(),
-    getMonthlyStats()
+    getMonthlyStats(),
+    Visit.countDocuments({ status: 'completed' }),
+    getVisitsByMonth()
   ]);
 
   return {
@@ -144,7 +149,12 @@ async function getSuperAdminStatsData() {
       totalTasks,
       totalAgents,
       totalAdmins,
-      totalUsers
+      totalUsers,
+      totalVisits
+    },
+    visits: {
+      totalVisits,
+      monthlyVisits
     },
     recentProperties,
     recentCustomers,
@@ -206,12 +216,26 @@ async function getAgentStatsData(agentId) {
     .populate('assignedProperties')
     .populate('assignedCustomers');
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const firstDayOfNextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+
   const [
     myTasks,
     completedTasks,
     pendingTasks,
     recentTasks,
-    tasksByPriority
+    tasksByPriority,
+    todaysVisits,
+    monthlyVisits,
+    totalVisits,
+    totalCustomers,
+    ownCustomers,
+    dueFollowUpsCount
   ] = await Promise.all([
     Task.countDocuments({
       $or: [{ createdBy: agentId }, { assignedTo: agentId }]
@@ -227,18 +251,56 @@ async function getAgentStatsData(agentId) {
     Task.find({
       $or: [{ createdBy: agentId }, { assignedTo: agentId }]
     }).sort('-createdAt').limit(5).populate('relatedProperty relatedCustomer'),
-    getTasksByPriority(agentId)
+    getTasksByPriority(agentId),
+    Visit.countDocuments({
+      agent: agentId,
+      status: 'completed',
+      visitDate: { $gte: today, $lt: tomorrow }
+    }),
+    Visit.countDocuments({
+      agent: agentId,
+      status: 'completed',
+      visitDate: { $gte: firstDayOfMonth, $lt: firstDayOfNextMonth }
+    }),
+    Visit.countDocuments({
+      agent: agentId,
+      status: 'completed'
+    }),
+    Customer.countDocuments({
+      $or: [
+        { assignedAgent: agentId },
+        { addedBy: agentId }
+      ]
+    }),
+    Customer.countDocuments({
+      assignedAgent: agentId
+    }),
+    Customer.countDocuments({
+      $or: [
+        { assignedAgent: agentId },
+        { addedBy: agentId }
+      ],
+      isFollowUpDue: true
+    })
   ]);
 
   return {
     overview: {
       assignedProperties: agent?.assignedProperties?.length || 0,
       assignedCustomers: agent?.assignedCustomers?.length || 0,
+      totalCustomers,
+      ownCustomers,
       totalTasks: myTasks,
       completedTasks,
       pendingTasks,
       totalSales: agent?.totalSales || 0,
-      totalCommission: agent?.totalCommission || 0
+      totalCommission: agent?.totalCommission || 0,
+      dueFollowUpsCount
+    },
+    visits: {
+      todaysVisits,
+      monthlyVisits,
+      totalVisits
     },
     assignedProperties: agent?.assignedProperties || [],
     assignedCustomers: agent?.assignedCustomers || [],
@@ -394,6 +456,48 @@ async function getMonthlyStats() {
       month: months[month - 1],
       properties: propertyData?.count || 0,
       customers: customerData?.count || 0
+    });
+  }
+
+  return monthlyData;
+}
+async function getVisitsByMonth() {
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+  const visits = await Visit.aggregate([
+    {
+      $match: {
+        createdAt: { $gte: sixMonthsAgo },
+        status: 'completed'
+      }
+    },
+    {
+      $group: {
+        _id: {
+          year: { $year: '$visitDate' },
+          month: { $month: '$visitDate' }
+        },
+        count: { $sum: 1 }
+      }
+    },
+    { $sort: { '_id.year': 1, '_id.month': 1 } }
+  ]);
+
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthlyData = [];
+
+  for (let i = 5; i >= 0; i--) {
+    const date = new Date();
+    date.setMonth(date.getMonth() - i);
+    const month = date.getMonth() + 1;
+    const year = date.getFullYear();
+
+    const visitData = visits.find(v => v._id.month === month && v._id.year === year);
+
+    monthlyData.push({
+      month: months[month - 1],
+      visits: visitData?.count || 0
     });
   }
 

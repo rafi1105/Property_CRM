@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import DashboardLayout from '../components/DashboardLayout';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
+import { locationData } from '../data/locations';
 import {
   UsersIcon,
   PlusIcon,
@@ -20,6 +21,8 @@ import {
   ChevronRightIcon,
   UserCircleIcon,
   TagIcon,
+  CalendarDaysIcon,
+  ClockIcon,
 } from '@heroicons/react/24/outline';
 
 const CustomerManagement = () => {
@@ -30,13 +33,22 @@ const CustomerManagement = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showMoveModal, setShowMoveModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPriority, setFilterPriority] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [customerScope, setCustomerScope] = useState('own'); // 'own' or 'foreign'
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [newNote, setNewNote] = useState('');
+  const [nextFollowUpDate, setNextFollowUpDate] = useState('');
+  const [nextFollowUpAction, setNextFollowUpAction] = useState('');
+  const [moveData, setMoveData] = useState({
+    zone: '',
+    thana: '',
+    agentId: ''
+  });
 
   const [formData, setFormData] = useState({
     name: '',
@@ -48,13 +60,14 @@ const CustomerManagement = () => {
     source: 'direct',
     requirements: '',
     budget: '',
-    assignedAgent: ''
+    assignedAgent: '',
+    referredBy: ''
   });
 
   useEffect(() => {
     fetchCustomers();
     if (user?.role !== 'agent') fetchAgents();
-  }, [currentPage, filterPriority, filterStatus, searchTerm]);
+  }, [currentPage, filterPriority, filterStatus, searchTerm, customerScope]);
 
   const fetchCustomers = async () => {
     try {
@@ -64,7 +77,13 @@ const CustomerManagement = () => {
       if (filterStatus !== 'all') params.status = filterStatus;
       if (searchTerm) params.search = searchTerm;
 
-      const response = await customerAPI.getAll(params);
+      let response;
+      if (customerScope === 'foreign') {
+        response = await customerAPI.getForeignCustomers(params);
+      } else {
+        response = await customerAPI.getAll(params);
+      }
+      
       const data = response.data;
       setCustomers(Array.isArray(data) ? data : data?.customers || []);
       setTotalPages(data?.totalPages || 1);
@@ -122,6 +141,19 @@ const CustomerManagement = () => {
     }
   };
 
+  const handleMoveCustomer = async (e) => {
+    e.preventDefault();
+    try {
+      await customerAPI.moveCustomer(selectedCustomer._id, moveData);
+      toast.success('Customer moved successfully!');
+      setShowMoveModal(false);
+      setMoveData({ zone: '', thana: '', agentId: '' });
+      fetchCustomers();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to move customer');
+    }
+  };
+
   const handleAddNote = async () => {
     if (!newNote.trim()) return;
     try {
@@ -136,6 +168,25 @@ const CustomerManagement = () => {
     }
   };
 
+  const handleUpdateFollowUp = async () => {
+    if (!nextFollowUpDate && !nextFollowUpAction) return;
+    try {
+      await customerAPI.update(selectedCustomer._id, {
+        nextFollowUpDate: nextFollowUpDate || selectedCustomer.nextFollowUpDate,
+        nextFollowUpAction: nextFollowUpAction || selectedCustomer.nextFollowUpAction
+      });
+      toast.success('Follow-up updated!');
+      setNextFollowUpDate('');
+      setNextFollowUpAction('');
+      // Refresh customer details
+      const response = await customerAPI.getById(selectedCustomer._id);
+      setSelectedCustomer(response.data.customer || response.data);
+      fetchCustomers();
+    } catch (error) {
+      toast.error('Failed to update follow-up');
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -147,7 +198,8 @@ const CustomerManagement = () => {
       source: 'direct',
       requirements: '',
       budget: '',
-      assignedAgent: ''
+      assignedAgent: '',
+      referredBy: ''
     });
     setSelectedCustomer(null);
   };
@@ -164,7 +216,8 @@ const CustomerManagement = () => {
       source: customer.source || 'direct',
       requirements: customer.requirements || '',
       budget: customer.budget || '',
-      assignedAgent: customer.assignedAgent?._id || ''
+      assignedAgent: customer.assignedAgent?._id || '',
+      referredBy: customer.referredBy || ''
     });
     setShowEditModal(true);
   };
@@ -243,16 +296,30 @@ const CustomerManagement = () => {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {customers.map((customer) => (
-              <div key={customer._id} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+              <div key={customer._id} className={`bg-white rounded-2xl p-5 shadow-sm border transition-shadow ${customer.isFollowUpDue ? 'border-orange-300 ring-2 ring-orange-100' : 'border-gray-100 hover:shadow-md'}`}>
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-white font-semibold text-lg">
-                        {customer.name?.charAt(0)?.toUpperCase()}
-                      </span>
+                    <div className="relative">
+                      <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-white font-semibold text-lg">
+                          {customer.name?.charAt(0)?.toUpperCase()}
+                        </span>
+                      </div>
+                      {customer.isFollowUpDue && (
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">
+                          <ClockIcon className="w-3 h-3 text-white" />
+                        </div>
+                      )}
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900">{customer.name}</h3>
+                      <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                        {customer.name}
+                        {customer.isFollowUpDue && (
+                          <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">
+                            Follow-up Due
+                          </span>
+                        )}
+                      </h3>
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[customer.status] || statusColors.active}`}>
                         {customer.status}
                       </span>
@@ -272,6 +339,12 @@ const CustomerManagement = () => {
                     <PhoneIcon className="w-4 h-4 text-gray-400" />
                     <span>{customer.phone}</span>
                   </div>
+                  {customer.referredBy && (
+                    <div className="flex items-center gap-2 text-gray-600 text-sm">
+                      <UserCircleIcon className="w-4 h-4 text-gray-400" />
+                      <span className="truncate">Ref. By: {customer.referredBy}</span>
+                    </div>
+                  )}
                   {customer.budget && (
                     <div className="flex items-center gap-2 text-gray-600 text-sm">
                       <TagIcon className="w-4 h-4 text-gray-400" />
@@ -464,6 +537,17 @@ const CustomerManagement = () => {
                       </div>
 
                       <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Referred By</label>
+                        <input
+                          type="text"
+                          value={formData.referredBy}
+                          onChange={(e) => setFormData({...formData, referredBy: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                          placeholder="Name of referrer"
+                        />
+                      </div>
+
+                      <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Budget (৳)</label>
                         <input
                           type="number"
@@ -573,6 +657,54 @@ const CustomerManagement = () => {
                             <p className="text-gray-600 bg-gray-50 p-3 rounded-xl">{selectedCustomer.requirements}</p>
                           </div>
                         )}
+
+                        {/* Next Follow-up Section */}
+                        <div className="mb-6 border border-blue-200 bg-blue-50 rounded-xl p-4">
+                          <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                            <CalendarDaysIcon className="w-5 h-5 text-blue-600" />
+                            Next Follow-up
+                          </h4>
+                          
+                          {/* Current Follow-up Info */}
+                          {(selectedCustomer.nextFollowUpDate || selectedCustomer.nextFollowUpAction) && (
+                            <div className="mb-3 p-3 bg-white rounded-lg">
+                              {selectedCustomer.nextFollowUpDate && (
+                                <p className="text-sm text-gray-700">
+                                  <span className="font-medium">Date:</span> {new Date(selectedCustomer.nextFollowUpDate).toLocaleDateString()}
+                                </p>
+                              )}
+                              {selectedCustomer.nextFollowUpAction && (
+                                <p className="text-sm text-gray-700 mt-1">
+                                  <span className="font-medium">Action:</span> {selectedCustomer.nextFollowUpAction}
+                                </p>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Update Follow-up Form */}
+                          <div className="space-y-2">
+                            <input
+                              type="date"
+                              value={nextFollowUpDate}
+                              onChange={(e) => setNextFollowUpDate(e.target.value)}
+                              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 text-sm"
+                              min={new Date().toISOString().split('T')[0]}
+                            />
+                            <input
+                              type="text"
+                              value={nextFollowUpAction}
+                              onChange={(e) => setNextFollowUpAction(e.target.value)}
+                              placeholder="Follow-up action (e.g., Call, Visit, Email)"
+                              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 text-sm"
+                            />
+                            <button
+                              onClick={handleUpdateFollowUp}
+                              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                            >
+                              Update Follow-up
+                            </button>
+                          </div>
+                        </div>
 
                         {/* Notes Section */}
                         <div>

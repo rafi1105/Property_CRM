@@ -151,6 +151,7 @@ import agentRoutes from './routes/agent.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
+import visitRoutes from './routes/visit.routes.js';
 
 // Serve static files from uploads directory
 // Use UPLOADS_DIR env variable for Hostinger or default to local uploads folder
@@ -166,6 +167,7 @@ app.use('/api/agents', agentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/visits', visitRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

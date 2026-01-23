@@ -56,5 +56,13 @@ export const locationData = {
     "Turag Thana": ["Turag Riverside Residential Belt"],
     "Cantonment Thana": ["Cantonment Area"],
     "Airport Thana": ["Airport Road", "Kurmitola"]
+  },
+
+  "Zone 6: Narayanganj": {
+    "Narayanganj Sadar": ["Sadar Upazila", "Municipality Area", "Chashara", "Gopaldi"],
+    "Fatulla": ["Fatulla Bazar", "Station Road", "Nimtola", "Boktaboli"],
+    "Siddhirganj": ["Adamjee Nagar", "Kadam Rasul", "Shibu Market", "Purba Siddhirganj"],
+    "Sonargaon": ["Mograpara", "Pirojpur", "Noagaon", "Jampur", "Barodi"],
+    "Araihazar": ["Araihazar Sadar", "Duptara", "Kashipur", "Gopaldi"]
   }
 };
