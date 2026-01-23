@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
@@ -34,7 +34,7 @@ let isConnected = false;
 
 const connectDB = async () => {
   if (isConnected) {
-    console.log('✅ Using existing MongoDB connection');
+    console.log('âœ… Using existing MongoDB connection');
     return;
   }
 
@@ -45,9 +45,9 @@ const connectDB = async () => {
     });
     
     isConnected = db.connections[0].readyState === 1;
-    console.log('✅ MongoDB Connected Successfully');
+    console.log('âœ… MongoDB Connected Successfully');
   } catch (err) {
-    console.error('❌ MongoDB Connection Error:', err.message);
+    console.error('âŒ MongoDB Connection Error:', err.message);
     throw err;
   }
 };
@@ -191,9 +191,9 @@ const PORT = process.env.PORT || 5000;
 // Only start the server if not in Vercel (Vercel handles this)
 if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
   app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📍 Environment: ${process.env.NODE_ENV}`);
-    console.log(`🌐 Client URL: ${process.env.CLIENT_URL}`);
+    console.log(`ðŸš€ Server running on port ${PORT}`);
+    console.log(`ðŸ“ Environment: ${process.env.NODE_ENV}`);
+    console.log(`ðŸŒ Client URL: ${process.env.CLIENT_URL}`);
   });
 }
 

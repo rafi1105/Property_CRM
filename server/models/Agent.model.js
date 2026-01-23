@@ -6,6 +6,7 @@ const agentSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
     unique: true
+    // Note: unique: true automatically creates an index
   },
   // Professional details
   licenseNumber: {
@@ -90,7 +91,7 @@ const agentSchema = new mongoose.Schema({
 });
 
 // Index for queries
-agentSchema.index({ userId: 1 });
+// Note: userId already has unique index from schema definition
 agentSchema.index({ managedBy: 1 });
 agentSchema.index({ availability: 1 });
 

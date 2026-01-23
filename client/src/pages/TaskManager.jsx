@@ -1,116 +1,140 @@
 import { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
-import AdminNavbar from '../components/AdminNavbar';
-import { taskAPI, authAPI } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import { taskAPI, agentAPI, customerAPI, propertyAPI } from '../utils/api';
+import { toast } from 'react-toastify';
+import DashboardLayout from '../components/DashboardLayout';
+import { Dialog, Transition } from '@headlessui/react';
+import { Fragment } from 'react';
+import {
+  ClipboardDocumentListIcon,
+  PlusIcon,
+  XMarkIcon,
+  CalendarDaysIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  ExclamationTriangleIcon,
+  FlagIcon,
+  UserIcon,
+  BuildingOfficeIcon,
+  ChevronDownIcon,
+} from '@heroicons/react/24/outline';
 
 const TaskManager = () => {
   const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
-  const [users, setUsers] = useState([]);
+  const [agents, setAgents] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [filter, setFilter] = useState('all'); // all, today, upcoming, completed
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [activeFilter, setActiveFilter] = useState('all');
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    assignedTo: '',
-    dueDate: '',
+    type: 'follow_up',
     priority: 'medium',
-    status: 'pending'
+    status: 'pending',
+    dueDate: '',
+    assignedTo: '',
+    customer: '',
+    property: ''
   });
 
   useEffect(() => {
-    if (user?.role === 'super_admin' || user?.role === 'admin') {
-      fetchTasks();
-      fetchUsers();
-    } else if (user?.role === 'agent') {
-      fetchMyTasks();
-    }
-  }, [user]);
-
+    fetchTasks();
+    fetchAgents();
+    fetchCustomers();
+    fetchProperties();
+  }, [activeFilter]);
 
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      const response = await taskAPI.getAll();
-      setTasks(response.data.tasks || response.data || []);
+      const params = activeFilter !== 'all' ? { status: activeFilter } : {};
+      const response = await taskAPI.getAll(params);
+      setTasks(response.data?.tasks || response.data || []);
     } catch (error) {
-      console.error('Error fetching tasks:', error);
-      toast.error('Failed to load tasks');
+      toast.error('Failed to fetch tasks');
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchMyTasks = async () => {
+  const fetchAgents = async () => {
     try {
-      setLoading(true);
-      const response = await taskAPI.getMyTasks();
-      setTasks(response.data.tasks || response.data || []);
+      const response = await agentAPI.getAll();
+      setAgents(response.data?.agents || []);
     } catch (error) {
-      console.error('Error fetching my tasks:', error);
-      toast.error('Failed to load my tasks');
-    } finally {
-      setLoading(false);
+      console.error('Error fetching agents:', error);
     }
   };
 
-  const fetchUsers = async () => {
+  const fetchCustomers = async () => {
     try {
-      const response = await authAPI.getAllUsers();
-      // Filter to show only Admin and Agent users for assignment
-      const assignableUsers = (response.data.users || []).filter(
-        u => u.role === 'admin' || u.role === 'agent'
-      );
-      setUsers(assignableUsers);
+      const response = await customerAPI.getAll({ limit: 100 });
+      setCustomers(response.data?.customers || response.data || []);
     } catch (error) {
-      console.error('Error fetching users:', error);
+      console.error('Error fetching customers:', error);
     }
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  const fetchProperties = async () => {
+    try {
+      const response = await propertyAPI.getAll({ limit: 100 });
+      setProperties(response.data?.properties || response.data || []);
+    } catch (error) {
+      console.error('Error fetching properties:', error);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       await taskAPI.create(formData);
-      toast.success('Task created successfully');
+      toast.success('Task created successfully!');
+      setShowAddModal(false);
       resetForm();
       fetchTasks();
     } catch (error) {
-      console.error('Error creating task:', error);
       toast.error(error.response?.data?.message || 'Failed to create task');
+    }
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    try {
+      await taskAPI.update(selectedTask._id, formData);
+      toast.success('Task updated successfully!');
+      setShowEditModal(false);
+      resetForm();
+      fetchTasks();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update task');
     }
   };
 
   const handleStatusChange = async (taskId, newStatus) => {
     try {
       await taskAPI.update(taskId, { status: newStatus });
-      toast.success('Task status updated');
+      toast.success('Status updated!');
       fetchTasks();
     } catch (error) {
-      console.error('Error updating task:', error);
-      toast.error('Failed to update task status');
+      toast.error('Failed to update status');
     }
   };
 
-  const handleDeleteTask = async (taskId) => {
-    if (!window.confirm('Are you sure you want to delete this task?')) return;
-    
-    try {
-      await taskAPI.delete(taskId);
-      toast.success('Task deleted successfully');
-      fetchTasks();
-    } catch (error) {
-      console.error('Error deleting task:', error);
-      toast.error('Failed to delete task');
+  const handleDelete = async (id) => {
+    if (window.confirm('Delete this task?')) {
+      try {
+        await taskAPI.delete(id);
+        toast.success('Task deleted!');
+        fetchTasks();
+      } catch (error) {
+        toast.error('Failed to delete task');
+      }
     }
   };
 
@@ -118,357 +142,403 @@ const TaskManager = () => {
     setFormData({
       title: '',
       description: '',
-      assignedTo: '',
-      dueDate: '',
+      type: 'follow_up',
       priority: 'medium',
-      status: 'pending'
+      status: 'pending',
+      dueDate: '',
+      assignedTo: '',
+      customer: '',
+      property: ''
     });
-    setShowAddModal(false);
+    setSelectedTask(null);
   };
 
-  const getFilteredTasks = () => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    switch (filter) {
-      case 'today':
-        return tasks.filter(task => {
-          const dueDate = new Date(task.dueDate);
-          return dueDate >= today && dueDate < tomorrow && task.status !== 'completed';
-        });
-      case 'upcoming':
-        return tasks.filter(task => {
-          const dueDate = new Date(task.dueDate);
-          return dueDate >= tomorrow && task.status !== 'completed';
-        });
-      case 'completed':
-        return tasks.filter(task => task.status === 'completed');
-      case 'my-tasks':
-        return tasks.filter(task => task.assignedTo === user?._id);
-      default:
-        return tasks;
-    }
+  const openEditModal = (task) => {
+    setSelectedTask(task);
+    setFormData({
+      title: task.title || '',
+      description: task.description || '',
+      type: task.type || 'follow_up',
+      priority: task.priority || 'medium',
+      status: task.status || 'pending',
+      dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
+      assignedTo: task.assignedTo?._id || '',
+      customer: task.customer?._id || '',
+      property: task.property?._id || ''
+    });
+    setShowEditModal(true);
   };
 
-  const filteredTasks = getFilteredTasks();
+  const filters = [
+    { key: 'all', label: 'All Tasks', icon: ClipboardDocumentListIcon },
+    { key: 'pending', label: 'Pending', icon: ClockIcon },
+    { key: 'in_progress', label: 'In Progress', icon: ExclamationTriangleIcon },
+    { key: 'completed', label: 'Completed', icon: CheckCircleIcon },
+  ];
 
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'high':
-        return 'bg-red-100 text-red-800';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'low':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+  const priorityColors = {
+    high: 'bg-red-100 text-red-700 border-red-200',
+    medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+    low: 'bg-green-100 text-green-700 border-green-200'
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'in_progress':
-        return 'bg-blue-100 text-blue-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+  const statusColors = {
+    pending: 'bg-gray-100 text-gray-700',
+    in_progress: 'bg-blue-100 text-blue-700',
+    completed: 'bg-green-100 text-green-700',
+    cancelled: 'bg-red-100 text-red-700'
+  };
+
+  const taskStats = {
+    total: tasks.length,
+    pending: tasks.filter(t => t.status === 'pending').length,
+    inProgress: tasks.filter(t => t.status === 'in_progress').length,
+    completed: tasks.filter(t => t.status === 'completed').length,
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <AdminNavbar />
-      
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">Task Manager</h1>
-            <p className="text-gray-600 mt-1">Organize and track tasks for your team</p>
-          </div>
-          {(user?.role === 'super_admin' || user?.role === 'admin') && (
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              <span>Add Task</span>
-            </button>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar Filters */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow p-4">
-              <h3 className="font-semibold text-gray-800 mb-4">Filters</h3>
-              <div className="space-y-2">
-                <button
-                  onClick={() => setFilter('all')}
-                  className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
-                    filter === 'all' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100 text-gray-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span>All Tasks</span>
-                    <span className="text-sm bg-gray-200 px-2 py-1 rounded">{tasks.length}</span>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setFilter('my-tasks')}
-                  className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
-                    filter === 'my-tasks' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100 text-gray-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span>My Tasks</span>
-                    <span className="text-sm bg-gray-200 px-2 py-1 rounded">
-                      {tasks.filter(t => t.assignedTo === user?._id).length}
-                    </span>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setFilter('today')}
-                  className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
-                    filter === 'today' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100 text-gray-700'
-                  }`}
-                >
-                  <span>Today</span>
-                </button>
-                <button
-                  onClick={() => setFilter('upcoming')}
-                  className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
-                    filter === 'upcoming' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100 text-gray-700'
-                  }`}
-                >
-                  <span>Upcoming</span>
-                </button>
-                <button
-                  onClick={() => setFilter('completed')}
-                  className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
-                    filter === 'completed' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100 text-gray-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span>Completed</span>
-                    <span className="text-sm bg-gray-200 px-2 py-1 rounded">
-                      {tasks.filter(t => t.status === 'completed').length}
-                    </span>
-                  </div>
-                </button>
-              </div>
+    <DashboardLayout title="Tasks" subtitle="Manage your tasks and activities">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Total Tasks</p>
+              <p className="text-2xl font-bold text-gray-900">{taskStats.total}</p>
+            </div>
+            <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+              <ClipboardDocumentListIcon className="w-5 h-5 text-purple-600" />
             </div>
           </div>
-
-          {/* Tasks List */}
-          <div className="lg:col-span-3">
-            <div className="bg-white rounded-lg shadow">
-              {loading ? (
-                <div className="p-8 text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="mt-4 text-gray-600">Loading tasks...</p>
-                </div>
-              ) : filteredTasks.length === 0 ? (
-                <div className="p-8 text-center">
-                  <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                  <p className="text-gray-600">No tasks found for this filter.</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-gray-200">
-                  {filteredTasks.map((task) => (
-                    <div key={task._id} className="p-6 hover:bg-gray-50 transition-colors">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start space-x-4 flex-1">
-                          {/* Checkbox */}
-                          <input
-                            type="checkbox"
-                            checked={task.status === 'completed'}
-                            onChange={(e) => handleStatusChange(task._id, e.target.checked ? 'completed' : 'pending')}
-                            disabled={user?.role !== 'super_admin' && task.assignedTo?._id !== user?._id}
-                            className="mt-1 w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                          />
-                          
-                          <div className="flex-1">
-                            <h3 className={`text-lg font-semibold ${task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-800'}`}>
-                              {task.title}
-                            </h3>
-                            {task.description && (
-                              <p className="text-gray-600 mt-1">{task.description}</p>
-                            )}
-                            
-                            <div className="flex flex-wrap items-center gap-3 mt-3">
-                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getPriorityColor(task.priority)}`}>
-                                {task.priority}
-                              </span>
-                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(task.status)}`}>
-                                {task.status}
-                              </span>
-                              {task.dueDate && (
-                                <span className="text-sm text-gray-600">
-                                  Due: {new Date(task.dueDate).toLocaleDateString()}
-                                </span>
-                              )}
-                              {task.assignedTo?.name && (
-                                <span className="text-sm text-gray-600">
-                                  Assigned to: {task.assignedTo.name}
-                                </span>
-                              )}
-                              {task.createdBy?.name && (
-                                <span className="text-sm text-gray-500">
-                                  Created by: {task.createdBy.name}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Actions */}
-                        {(user?.role === 'super_admin' || task.assignedTo?._id === user?._id) && (
-                          <div className="flex items-center space-x-2 ml-4">
-                            <select
-                              value={task.status}
-                              onChange={(e) => handleStatusChange(task._id, e.target.value)}
-                              className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            >
-                              <option value="pending">Pending</option>
-                              <option value="in_progress">In Progress</option>
-                              <option value="completed">Completed</option>
-                            </select>
-                          </div>
-                        )}
-                        {(user?.role === 'super_admin' || task.createdBy?._id === user?._id) && (
-                          <button
-                            onClick={() => handleDeleteTask(task._id)}
-                            className="text-red-600 hover:text-red-800 p-2 ml-2"
-                            title="Delete task"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+        </div>
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Pending</p>
+              <p className="text-2xl font-bold text-gray-900">{taskStats.pending}</p>
+            </div>
+            <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
+              <ClockIcon className="w-5 h-5 text-yellow-600" />
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">In Progress</p>
+              <p className="text-2xl font-bold text-gray-900">{taskStats.inProgress}</p>
+            </div>
+            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+              <ExclamationTriangleIcon className="w-5 h-5 text-blue-600" />
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Completed</p>
+              <p className="text-2xl font-bold text-gray-900">{taskStats.completed}</p>
+            </div>
+            <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+              <CheckCircleIcon className="w-5 h-5 text-green-600" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Add Task Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
-            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-800">Add New Task</h2>
-              <button onClick={resetForm} className="text-gray-500 hover:text-gray-700">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Task Title</label>
-                <input
-                  type="text"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+      {/* Filters & Add Button */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div className="flex flex-wrap gap-2">
+          {filters.map((filter) => (
+            <button
+              key={filter.key}
+              onClick={() => setActiveFilter(filter.key)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all ${
+                activeFilter === filter.key
+                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
+                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              <filter.icon className="w-4 h-4" />
+              {filter.label}
+            </button>
+          ))}
+        </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  rows="3"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+        <button
+          onClick={() => { resetForm(); setShowAddModal(true); }}
+          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:shadow-purple-500/30 transition-all font-medium"
+        >
+          <PlusIcon className="w-5 h-5" />
+          Add Task
+        </button>
+      </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Assign To</label>
-                <select
-                  name="assignedTo"
-                  value={formData.assignedTo}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Select user...</option>
-                  {users.map(u => (
-                    <option key={u._id} value={u._id}>
-                      {u.name} ({u.email}) - {u.role}
-                    </option>
-                  ))}
-                </select>
-              </div>
+      {/* Tasks List */}
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="w-10 h-10 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {tasks.map((task) => (
+            <div key={task._id} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-start gap-3 mb-2">
+                    <button
+                      onClick={() => handleStatusChange(task._id, task.status === 'completed' ? 'pending' : 'completed')}
+                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${
+                        task.status === 'completed'
+                          ? 'bg-green-500 border-green-500'
+                          : 'border-gray-300 hover:border-purple-500'
+                      }`}
+                    >
+                      {task.status === 'completed' && <CheckCircleIcon className="w-4 h-4 text-white" />}
+                    </button>
+                    <div>
+                      <h3 className={`font-semibold text-gray-900 ${task.status === 'completed' ? 'line-through text-gray-400' : ''}`}>
+                        {task.title}
+                      </h3>
+                      {task.description && (
+                        <p className="text-sm text-gray-500 mt-1 line-clamp-2">{task.description}</p>
+                      )}
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                  <div className="flex flex-wrap items-center gap-3 ml-9">
+                    <span className={`px-2 py-1 rounded-lg text-xs font-medium border ${priorityColors[task.priority]}`}>
+                      <FlagIcon className="w-3 h-3 inline mr-1" />
+                      {task.priority}
+                    </span>
+                    <span className={`px-2 py-1 rounded-lg text-xs font-medium ${statusColors[task.status]}`}>
+                      {task.status?.replace('_', ' ')}
+                    </span>
+                    {task.dueDate && (
+                      <span className="flex items-center gap-1 text-xs text-gray-500">
+                        <CalendarDaysIcon className="w-3 h-3" />
+                        {new Date(task.dueDate).toLocaleDateString()}
+                      </span>
+                    )}
+                    {task.assignedTo && (
+                      <span className="flex items-center gap-1 text-xs text-gray-500">
+                        <UserIcon className="w-3 h-3" />
+                        {task.assignedTo?.name}
+                      </span>
+                    )}
+                    {task.customer && (
+                      <span className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">
+                        {task.customer?.name}
+                      </span>
+                    )}
+                    {task.property && (
+                      <span className="flex items-center gap-1 text-xs text-gray-500 bg-purple-50 px-2 py-1 rounded-lg">
+                        <BuildingOfficeIcon className="w-3 h-3" />
+                        {task.property?.title}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 ml-9 md:ml-0">
                   <select
-                    name="priority"
-                    value={formData.priority}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={task.status}
+                    onChange={(e) => handleStatusChange(task._id, e.target.value)}
+                    className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                   >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
+                    <option value="pending">Pending</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
                   </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
-                  <input
-                    type="date"
-                    name="dueDate"
-                    value={formData.dueDate}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                  <button
+                    onClick={() => openEditModal(task)}
+                    className="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(task._id)}
+                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
+            </div>
+          ))}
 
-              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Create Task
-                </button>
-              </div>
-            </form>
-          </div>
+          {tasks.length === 0 && (
+            <div className="text-center py-12 bg-white rounded-2xl">
+              <ClipboardDocumentListIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900">No tasks found</h3>
+              <p className="text-gray-500 mt-1">Create your first task to get started</p>
+            </div>
+          )}
         </div>
       )}
-    </div>
+
+      {/* Add/Edit Modal */}
+      <Transition appear show={showAddModal || showEditModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => { setShowAddModal(false); setShowEditModal(false); }}>
+          <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
+                <Dialog.Panel className="w-full max-w-lg bg-white rounded-2xl shadow-xl">
+                  <div className="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+                    <Dialog.Title className="text-xl font-semibold text-gray-900">
+                      {showEditModal ? 'Edit Task' : 'Create New Task'}
+                    </Dialog.Title>
+                    <button onClick={() => { setShowAddModal(false); setShowEditModal(false); }} className="p-2 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-100">
+                      <XMarkIcon className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <form onSubmit={showEditModal ? handleUpdate : handleSubmit} className="p-6 space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Task Title</label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.title}
+                        onChange={(e) => setFormData({...formData, title: e.target.value})}
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                        placeholder="Enter task title"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                      <textarea
+                        rows={3}
+                        value={formData.description}
+                        onChange={(e) => setFormData({...formData, description: e.target.value})}
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 resize-none"
+                        placeholder="Task description"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                        <select
+                          value={formData.type}
+                          onChange={(e) => setFormData({...formData, type: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                        >
+                          <option value="follow_up">Follow Up</option>
+                          <option value="meeting">Meeting</option>
+                          <option value="call">Call</option>
+                          <option value="viewing">Property Viewing</option>
+                          <option value="document">Documentation</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+                        <select
+                          value={formData.priority}
+                          onChange={(e) => setFormData({...formData, priority: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                        >
+                          <option value="high">High</option>
+                          <option value="medium">Medium</option>
+                          <option value="low">Low</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                        <select
+                          value={formData.status}
+                          onChange={(e) => setFormData({...formData, status: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="in_progress">In Progress</option>
+                          <option value="completed">Completed</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Due Date</label>
+                        <input
+                          type="date"
+                          value={formData.dueDate}
+                          onChange={(e) => setFormData({...formData, dueDate: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                        />
+                      </div>
+                    </div>
+
+                    {user?.role !== 'agent' && agents.length > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Assign To</label>
+                        <select
+                          value={formData.assignedTo}
+                          onChange={(e) => setFormData({...formData, assignedTo: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                        >
+                          <option value="">Select Agent</option>
+                          {agents.map(agent => (
+                            <option key={agent._id} value={agent._id}>{agent.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Related Customer</label>
+                        <select
+                          value={formData.customer}
+                          onChange={(e) => setFormData({...formData, customer: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                        >
+                          <option value="">None</option>
+                          {customers.map(customer => (
+                            <option key={customer._id} value={customer._id}>{customer.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Related Property</label>
+                        <select
+                          value={formData.property}
+                          onChange={(e) => setFormData({...formData, property: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                        >
+                          <option value="">None</option>
+                          {properties.map(property => (
+                            <option key={property._id} value={property._id}>{property.title}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-4 border-t">
+                      <button type="button" onClick={() => { setShowAddModal(false); setShowEditModal(false); }} className="flex-1 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium">
+                        Cancel
+                      </button>
+                      <button type="submit" className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg font-medium">
+                        {showEditModal ? 'Update Task' : 'Create Task'}
+                      </button>
+                    </div>
+                  </form>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+    </DashboardLayout>
   );
 };
 

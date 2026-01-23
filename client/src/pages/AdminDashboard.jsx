@@ -1,13 +1,34 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router';
+import { useNavigate, Link } from 'react-router-dom';
 import { dashboardAPI, propertyAPI } from '../utils/api';
 import { toast } from 'react-toastify';
-import AdminNavbar from '../components/AdminNavbar';
-import Footer from '../components/Footer';
+import DashboardLayout from '../components/DashboardLayout';
+import { Dialog, Transition } from '@headlessui/react';
+import { Fragment } from 'react';
 import {
-  PieChart, Pie, Cell, BarChart, Bar, LineChart, Line,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+  HomeIcon,
+  UsersIcon,
+  ClipboardDocumentListIcon,
+  UserGroupIcon,
+  PlusIcon,
+  XMarkIcon,
+  ChartBarIcon,
+  ArrowTrendingUpIcon,
+  BuildingOfficeIcon,
+  CurrencyDollarIcon,
+  EyeIcon,
+  PencilSquareIcon,
+  CalendarDaysIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  ExclamationCircleIcon,
+} from '@heroicons/react/24/outline';
+import {
+  AreaChart, Area, BarChart, Bar, LineChart, Line,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
 
 const AdminDashboard = () => {
@@ -35,12 +56,11 @@ const AdminDashboard = () => {
     try {
       setLoading(true);
       
-      // Fetch stats based on role
       let statsResponse;
       if (user.role === 'super_admin') {
         statsResponse = await dashboardAPI.getSuperAdminStats();
-        // Fetch all users for Super Admin
-        const usersResponse = await fetch('https://real-estate-iota-livid.vercel.app/api/auth/users', {
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const usersResponse = await fetch(`${API_BASE_URL}/auth/users`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
         const usersData = await usersResponse.json();
@@ -53,7 +73,6 @@ const AdminDashboard = () => {
       
       setStats(statsResponse.data.stats);
       
-      // Fetch properties
       const propertiesResponse = await propertyAPI.getAll();
       setProperties(Array.isArray(propertiesResponse.data) ? propertiesResponse.data : propertiesResponse.data?.properties || []);
       
@@ -67,11 +86,9 @@ const AdminDashboard = () => {
 
   const handleAddUser = async (e) => {
     e.preventDefault();
-    
     try {
-      console.log('Sending user data:', newUser);
-      
-      const response = await fetch('https://real-estate-iota-livid.vercel.app/api/auth/create-staff', {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/auth/create-staff`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -81,458 +98,445 @@ const AdminDashboard = () => {
       });
 
       const data = await response.json();
-      console.log('Server response:', data);
       
       if (response.ok) {
-        toast.success(`${newUser.role.charAt(0).toUpperCase() + newUser.role.slice(1)} user created successfully!`);
+        toast.success('User created successfully!');
         setShowAddUserModal(false);
-        setNewUser({
-          name: '',
-          email: '',
-          password: '',
-          role: 'admin',
-          phone: '',
-          address: ''
-        });
+        setNewUser({ name: '', email: '', password: '', role: 'admin', phone: '', address: '' });
         fetchDashboardData();
       } else {
-        // Show detailed error message
-        const errorMsg = data.errors 
-          ? data.errors.map(err => err.msg).join(', ')
-          : data.message || 'Failed to create user';
-        toast.error(errorMsg);
-        console.error('Validation errors:', data.errors);
+        toast.error(data.message || 'Failed to create user');
       }
     } catch (error) {
-      console.error('Error creating user:', error);
-      toast.error('Failed to create user');
+      toast.error('Error creating user');
     }
   };
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat('en-BD', {
-      style: 'currency',
-      currency: 'BDT',
-      minimumFractionDigits: 0,
-    }).format(price);
-  };
+  // Chart data
+  const monthlyData = [
+    { name: 'Jan', properties: 12, customers: 8, revenue: 45000 },
+    { name: 'Feb', properties: 19, customers: 12, revenue: 52000 },
+    { name: 'Mar', properties: 15, customers: 10, revenue: 48000 },
+    { name: 'Apr', properties: 25, customers: 18, revenue: 61000 },
+    { name: 'May', properties: 22, customers: 15, revenue: 55000 },
+    { name: 'Jun', properties: 30, customers: 22, revenue: 72000 },
+  ];
+
+  const propertyTypeData = [
+    { name: 'Residential', value: 45, color: '#8B5CF6' },
+    { name: 'Commercial', value: 25, color: '#EC4899' },
+    { name: 'Industrial', value: 15, color: '#F59E0B' },
+    { name: 'Land', value: 15, color: '#10B981' },
+  ];
+
+  const recentActivities = [
+    { id: 1, type: 'property', action: 'New property added', item: 'Luxury Villa - Gulshan', time: '2 hours ago', icon: BuildingOfficeIcon, color: 'bg-purple-100 text-purple-600' },
+    { id: 2, type: 'customer', action: 'New customer registered', item: 'Ahmed Rahman', time: '4 hours ago', icon: UsersIcon, color: 'bg-blue-100 text-blue-600' },
+    { id: 3, type: 'task', action: 'Task completed', item: 'Property inspection', time: '5 hours ago', icon: CheckCircleIcon, color: 'bg-green-100 text-green-600' },
+    { id: 4, type: 'deal', action: 'Deal closed', item: 'Apartment Sale - Banani', time: '1 day ago', icon: CurrencyDollarIcon, color: 'bg-yellow-100 text-yellow-600' },
+  ];
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+      <DashboardLayout title="Dashboard" subtitle="Welcome back!">
+        <div className="flex items-center justify-center h-96">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+            <p className="text-gray-500">Loading dashboard...</p>
+          </div>
         </div>
-      </div>
+      </DashboardLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <AdminNavbar />
-
-      {/* Page Header */}
-      <div className="bg-blue-600 text-white py-12">
-        <div className="container mx-auto px-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-4xl font-bold mb-2">
-                {user.role === 'super_admin' ? 'Super Admin' : user.role === 'admin' ? 'Admin' : 'Agent'} Dashboard
-              </h1>
-              <p className="text-blue-100">
-                Welcome back, {user.name}!
-              </p>
+    <DashboardLayout title="Dashboard" subtitle={`Welcome back, ${user?.name}!`}>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {/* Total Properties */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+              <BuildingOfficeIcon className="w-6 h-6 text-purple-600" />
             </div>
-            {user.role === 'super_admin' && (
-              <button
-                onClick={() => setShowAddUserModal(true)}
-                className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors flex items-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Add User
-              </button>
-            )}
+            <span className="flex items-center text-sm font-medium text-green-600 bg-green-50 px-2 py-1 rounded-lg">
+              <ArrowUpIcon className="w-3 h-3 mr-1" />
+              12%
+            </span>
+          </div>
+          <h3 className="text-3xl font-bold text-gray-900">{stats?.totalProperties || 0}</h3>
+          <p className="text-gray-500 text-sm mt-1">Total Properties</p>
+        </div>
+
+        {/* Total Customers */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+              <UsersIcon className="w-6 h-6 text-blue-600" />
+            </div>
+            <span className="flex items-center text-sm font-medium text-green-600 bg-green-50 px-2 py-1 rounded-lg">
+              <ArrowUpIcon className="w-3 h-3 mr-1" />
+              8%
+            </span>
+          </div>
+          <h3 className="text-3xl font-bold text-gray-900">{stats?.totalCustomers || 0}</h3>
+          <p className="text-gray-500 text-sm mt-1">Total Customers</p>
+        </div>
+
+        {/* Active Tasks */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+              <ClipboardDocumentListIcon className="w-6 h-6 text-orange-600" />
+            </div>
+            <span className="flex items-center text-sm font-medium text-red-600 bg-red-50 px-2 py-1 rounded-lg">
+              <ArrowDownIcon className="w-3 h-3 mr-1" />
+              3%
+            </span>
+          </div>
+          <h3 className="text-3xl font-bold text-gray-900">{stats?.pendingTasks || stats?.activeTasks || 0}</h3>
+          <p className="text-gray-500 text-sm mt-1">Active Tasks</p>
+        </div>
+
+        {/* Total Agents/Users */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+              <UserGroupIcon className="w-6 h-6 text-green-600" />
+            </div>
+            <span className="flex items-center text-sm font-medium text-green-600 bg-green-50 px-2 py-1 rounded-lg">
+              <ArrowUpIcon className="w-3 h-3 mr-1" />
+              5%
+            </span>
+          </div>
+          <h3 className="text-3xl font-bold text-gray-900">{stats?.totalAgents || stats?.totalUsers || 0}</h3>
+          <p className="text-gray-500 text-sm mt-1">{user?.role === 'super_admin' ? 'Total Users' : 'Total Agents'}</p>
+        </div>
+      </div>
+
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Activity Chart */}
+        <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Activity Overview</h3>
+              <p className="text-sm text-gray-500">Monthly performance metrics</p>
+            </div>
+            <select className="px-3 py-2 bg-gray-100 border-0 rounded-xl text-sm text-gray-700 focus:ring-2 focus:ring-purple-500">
+              <option>Last 6 months</option>
+              <option>Last year</option>
+            </select>
+          </div>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={monthlyData}>
+                <defs>
+                  <linearGradient id="colorProperties" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorCustomers" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#EC4899" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#EC4899" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#fff', 
+                    border: 'none', 
+                    borderRadius: '12px', 
+                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
+                  }} 
+                />
+                <Area type="monotone" dataKey="properties" stroke="#8B5CF6" strokeWidth={2} fill="url(#colorProperties)" />
+                <Area type="monotone" dataKey="customers" stroke="#EC4899" strokeWidth={2} fill="url(#colorCustomers)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Property Types Pie */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Property Types</h3>
+          <div className="h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={propertyTypeData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {propertyTypeData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="grid grid-cols-2 gap-2 mt-4">
+            {propertyTypeData.map((item) => (
+              <div key={item.name} className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
+                <span className="text-sm text-gray-600">{item.name}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-12">
-        {/* Statistics Cards */}
-        <div className="grid md:grid-cols-4 gap-6 mb-12">
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-gray-600 font-medium">Total Properties</h3>
-              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-            </div>
-            <p className="text-3xl font-bold text-gray-800">{stats?.overview?.totalProperties || stats?.totalProperties || 0}</p>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-gray-600 font-medium">Customers</h3>
-              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-            </div>
-            <p className="text-3xl font-bold text-gray-800">{stats?.overview?.totalCustomers || stats?.totalCustomers || 0}</p>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-gray-600 font-medium">Tasks</h3>
-              <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-            </div>
-            <p className="text-3xl font-bold text-gray-800">{stats?.overview?.totalTasks || stats?.totalTasks || 0}</p>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-gray-600 font-medium">Agents</h3>
-              <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
-            </div>
-            <p className="text-3xl font-bold text-gray-800">{stats?.overview?.totalAgents || stats?.totalAgents || 0}</p>
-          </div>
-        </div>
-
-        {/* Business Analytics Charts - Super Admin Only */}
-        {user.role === 'super_admin' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-            {/* Property Status Pie Chart */}
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">Property Status Distribution</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={[
-                      { name: 'Available', value: properties.filter(p => p.status === 'available').length, color: '#10B981' },
-                      { name: 'Under Contract', value: properties.filter(p => p.status === 'under_contract').length, color: '#F59E0B' },
-                      { name: 'Sold', value: properties.filter(p => p.status === 'sold').length, color: '#3B82F6' },
-                      { name: 'Rented', value: properties.filter(p => p.status === 'rented').length, color: '#8B5CF6' }
-                    ]}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {[
-                      { name: 'Available', value: properties.filter(p => p.status === 'available').length, color: '#10B981' },
-                      { name: 'Under Contract', value: properties.filter(p => p.status === 'under_contract').length, color: '#F59E0B' },
-                      { name: 'Sold', value: properties.filter(p => p.status === 'sold').length, color: '#3B82F6' },
-                      { name: 'Rented', value: properties.filter(p => p.status === 'rented').length, color: '#8B5CF6' }
-                    ].map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* User Role Distribution Pie Chart */}
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">User Role Distribution</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={[
-                      { name: 'Super Admin', value: users.filter(u => u.role === 'super_admin').length, color: '#8B5CF6' },
-                      { name: 'Admin', value: users.filter(u => u.role === 'admin').length, color: '#3B82F6' },
-                      { name: 'Agent', value: users.filter(u => u.role === 'agent').length, color: '#10B981' },
-                      { name: 'User', value: users.filter(u => u.role === 'user').length, color: '#6B7280' }
-                    ]}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {[
-                      { name: 'Super Admin', value: users.filter(u => u.role === 'super_admin').length, color: '#8B5CF6' },
-                      { name: 'Admin', value: users.filter(u => u.role === 'admin').length, color: '#3B82F6' },
-                      { name: 'Agent', value: users.filter(u => u.role === 'agent').length, color: '#10B981' },
-                      { name: 'User', value: users.filter(u => u.role === 'user').length, color: '#6B7280' }
-                    ].map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Property Type Bar Chart */}
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">Properties by Type</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart
-                  data={[
-                    { type: 'Apartment', count: properties.filter(p => p.type?.toLowerCase() === 'apartment').length },
-                    { type: 'House', count: properties.filter(p => p.type?.toLowerCase() === 'house').length },
-                    { type: 'Villa', count: properties.filter(p => p.type?.toLowerCase() === 'villa').length },
-                    { type: 'Condo', count: properties.filter(p => p.type?.toLowerCase() === 'condo').length },
-                    { type: 'Land', count: properties.filter(p => p.type?.toLowerCase() === 'land').length },
-                    { type: 'Commercial', count: properties.filter(p => p.type?.toLowerCase() === 'commercial').length }
-                  ]}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="type" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="count" fill="#3B82F6" name="Properties" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Price Range Distribution Bar Chart */}
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">Price Range Distribution</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart
-                  data={[
-                    { range: 'Under 50L', count: properties.filter(p => p.price < 5000000).length },
-                    { range: '50L-1Cr', count: properties.filter(p => p.price >= 5000000 && p.price < 10000000).length },
-                    { range: '1Cr-2Cr', count: properties.filter(p => p.price >= 10000000 && p.price < 20000000).length },
-                    { range: '2Cr-5Cr', count: properties.filter(p => p.price >= 20000000 && p.price < 50000000).length },
-                    { range: 'Above 5Cr', count: properties.filter(p => p.price >= 50000000).length }
-                  ]}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="range" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="count" fill="#10B981" name="Properties" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        )}
-
-        {/* Super Admin User Management */}
-        {user.role === 'super_admin' && users.length > 0 && (
-          <div className="bg-white rounded-lg shadow-md overflow-hidden mb-12">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-800">User Management</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {users.map((u) => (
-                    <tr key={u._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{u.name}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{u.email}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          u.role === 'super_admin' ? 'bg-purple-100 text-purple-800' :
-                          u.role === 'admin' ? 'bg-blue-100 text-blue-800' :
-                          u.role === 'agent' ? 'bg-green-100 text-green-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {u.role}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          u.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {u.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {new Date(u.createdAt).toLocaleDateString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Properties Table */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-2xl font-bold text-gray-800">Property Listings</h2>
+      {/* Bottom Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Recent Properties */}
+        <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">Recent Properties</h3>
+            <Link to="/properties" className="text-purple-600 text-sm font-medium hover:text-purple-700">
+              View all →
+            </Link>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Property</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Type</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Price</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Status</th>
+                  <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Action</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {properties.length > 0 ? properties.map((property) => (
-                  <tr key={property._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{property.name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{property.location}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatPrice(property.price)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{property.squareFeet} sqft</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        property.status === 'available' ? 'bg-green-100 text-green-800' :
-                        property.status === 'sold' ? 'bg-red-100 text-red-800' :
-                        'bg-yellow-100 text-yellow-800'
+              <tbody>
+                {properties.slice(0, 5).map((property) => (
+                  <tr key={property._id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                          <BuildingOfficeIcon className="w-5 h-5 text-purple-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">{property.title}</p>
+                          <p className="text-sm text-gray-500">{property.location?.area}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-4 px-4">
+                      <span className="text-gray-600">{property.type}</span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <span className="font-medium text-gray-900">৳{property.price?.toLocaleString()}</span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        property.status === 'available' 
+                          ? 'bg-green-100 text-green-700'
+                          : property.status === 'sold'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-yellow-100 text-yellow-700'
                       }`}>
                         {property.status}
                       </span>
                     </td>
-                  </tr>
-                )) : (
-                  <tr>
-                    <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
-                      No properties found. Add your first property to get started!
+                    <td className="py-4 px-4 text-right">
+                      <button 
+                        onClick={() => navigate(`/properties`)}
+                        className="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                      >
+                        <EyeIcon className="w-5 h-5" />
+                      </button>
                     </td>
                   </tr>
-                )}
+                ))}
               </tbody>
             </table>
           </div>
         </div>
-      </div>
 
-      {/* Add User Modal */}
-      {showAddUserModal && (
-        <div className="fixed inset-0 bg-gray-200 bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-bold text-gray-900">Add New User</h3>
-              <button
-                onClick={() => setShowAddUserModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <form onSubmit={handleAddUser} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                <input
-                  type="text"
-                  required
-                  value={newUser.name}
-                  onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input
-                  type="email"
-                  required
-                  value={newUser.email}
-                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                <input
-                  type="password"
-                  required
-                  value={newUser.password}
-                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                <input
-                  type="tel"
-                  value={newUser.phone}
-                  onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
-                <div className="space-y-2">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="role"
-                      value="admin"
-                      checked={newUser.role === 'admin'}
-                      onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                      className="w-4 h-4 text-blue-600"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">Admin</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="role"
-                      value="agent"
-                      checked={newUser.role === 'agent'}
-                      onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                      className="w-4 h-4 text-blue-600"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">Agent</span>
-                  </label>
+        {/* Recent Activity */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6">Recent Activity</h3>
+          <div className="space-y-4">
+            {recentActivities.map((activity) => (
+              <div key={activity.id} className="flex items-start gap-4">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${activity.color}`}>
+                  <activity.icon className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900">{activity.action}</p>
+                  <p className="text-sm text-gray-500 truncate">{activity.item}</p>
+                  <p className="text-xs text-gray-400 mt-1">{activity.time}</p>
                 </div>
               </div>
-              
-              <div className="flex gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowAddUserModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Create User
-                </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions - Super Admin Only */}
+      {user?.role === 'super_admin' && (
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">Team Members</h3>
+            <button
+              onClick={() => setShowAddUserModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:shadow-purple-500/30 transition-all"
+            >
+              <PlusIcon className="w-5 h-5" />
+              Add User
+            </button>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {users.slice(0, 6).map((u) => (
+              <div key={u._id} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                    <span className="text-white font-semibold">
+                      {u.name?.charAt(0)?.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-gray-900 truncate">{u.name}</h4>
+                    <p className="text-sm text-gray-500 truncate">{u.email}</p>
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center justify-between">
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${
+                    u.role === 'super_admin' 
+                      ? 'bg-purple-100 text-purple-700'
+                      : u.role === 'admin'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-green-100 text-green-700'
+                  }`}>
+                    {u.role?.replace('_', ' ')}
+                  </span>
+                  <span className={`flex items-center gap-1 text-xs ${u.isActive !== false ? 'text-green-600' : 'text-gray-400'}`}>
+                    <span className={`w-2 h-2 rounded-full ${u.isActive !== false ? 'bg-green-500' : 'bg-gray-300'}`}></span>
+                    {u.isActive !== false ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
               </div>
-            </form>
+            ))}
           </div>
         </div>
       )}
 
-      <Footer />
-    </div>
+      {/* Add User Modal */}
+      <Transition appear show={showAddUserModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setShowAddUserModal(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md bg-white rounded-2xl p-6 shadow-xl">
+                  <div className="flex items-center justify-between mb-6">
+                    <Dialog.Title className="text-xl font-semibold text-gray-900">
+                      Add New User
+                    </Dialog.Title>
+                    <button
+                      onClick={() => setShowAddUserModal(false)}
+                      className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+                    >
+                      <XMarkIcon className="w-5 h-5" />
+                    </button>
+                  </div>
+                  
+                  <form onSubmit={handleAddUser} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                      <input
+                        type="text"
+                        required
+                        value={newUser.name}
+                        onChange={(e) => setNewUser({...newUser, name: e.target.value})}
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900"
+                        placeholder="Enter full name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                      <input
+                        type="email"
+                        required
+                        value={newUser.email}
+                        onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900"
+                        placeholder="Enter email"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                      <input
+                        type="password"
+                        required
+                        value={newUser.password}
+                        onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900"
+                        placeholder="Enter password"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                      <select
+                        value={newUser.role}
+                        onChange={(e) => setNewUser({...newUser, role: e.target.value})}
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900"
+                      >
+                        <option value="admin">Admin</option>
+                        <option value="agent">Agent</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                      <input
+                        type="tel"
+                        value={newUser.phone}
+                        onChange={(e) => setNewUser({...newUser, phone: e.target.value})}
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900"
+                        placeholder="Enter phone number"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-purple-500/30 transition-all"
+                    >
+                      Create User
+                    </button>
+                  </form>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+    </DashboardLayout>
   );
 };
 

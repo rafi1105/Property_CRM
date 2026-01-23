@@ -1,279 +1,293 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { toast } from 'react-hot-toast';
-import AdminNavbar from '../components/AdminNavbar';
-import Navbar from '../components/Navbar';
-import Footer from '../components/Footer';
+import { toast } from 'react-toastify';
+import DashboardLayout from '../components/DashboardLayout';
+import {
+  UserCircleIcon,
+  EnvelopeIcon,
+  PhoneIcon,
+  MapPinIcon,
+  ShieldCheckIcon,
+  PencilIcon,
+  KeyIcon,
+} from '@heroicons/react/24/outline';
 
 const Profile = () => {
-  const { user } = useAuth();
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    address: '',
-    photoURL: ''
-  });
-  const [isEditing, setIsEditing] = useState(false);
+  const { user, updateProfile } = useAuth();
+  const [editing, setEditing] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      setFormData({
-        name: user.name || '',
-        email: user.email || '',
-        phone: user.phone || '',
-        address: user.address || '',
-        photoURL: user.photoURL || ''
-      });
-    }
-  }, [user]);
+  const [formData, setFormData] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    address: user?.address || ''
+  });
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
 
-  const handleSubmit = async (e) => {
+  const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setLoading(true);
-
     try {
-      const response = await fetch('https://real-estate-iota-livid.vercel.app/api/auth/profile', {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (response.ok) {
+        toast.success('Profile updated successfully!');
+        setEditing(false);
+        if (updateProfile) updateProfile(formData);
+      } else {
+        const data = await response.json();
+        toast.error(data.message || 'Failed to update profile');
+      }
+    } catch (error) {
+      toast.error('Error updating profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+    if (passwordData.newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
         body: JSON.stringify({
-          name: formData.name,
-          phone: formData.phone,
-          address: formData.address
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
         })
       });
 
-      const data = await response.json();
-
       if (response.ok) {
-        toast.success('Profile updated successfully!');
-        setIsEditing(false);
+        toast.success('Password changed successfully!');
+        setChangingPassword(false);
+        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       } else {
-        toast.error(data.message || 'Failed to update profile');
+        const data = await response.json();
+        toast.error(data.message || 'Failed to change password');
       }
     } catch (error) {
-      console.error('Error updating profile:', error);
-      toast.error('Failed to update profile');
+      toast.error('Error changing password');
     } finally {
       setLoading(false);
     }
   };
 
-  const isAdminRole = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'agent';
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {isAdminRole ? <AdminNavbar /> : <Navbar />}
-      
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <DashboardLayout title="Profile" subtitle="Manage your account settings">
+      <div className="max-w-2xl">
+        {/* Profile Card */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-8 text-white">
-            <div className="flex items-center space-x-6">
-              <div className="relative">
-                {user?.photoURL ? (
-                  <img
-                    src={user.photoURL}
-                    alt={user.name}
-                    className="w-24 h-24 rounded-full border-4 border-white object-cover"
-                  />
-                ) : (
-                  <div className="w-24 h-24 rounded-full border-4 border-white bg-blue-500 flex items-center justify-center text-3xl font-bold">
-                    {user?.name?.charAt(0).toUpperCase()}
-                  </div>
-                )}
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold">{user?.name}</h1>
-                <p className="text-blue-100 mt-1">{user?.email}</p>
-                <span className="inline-block mt-2 px-3 py-1 bg-white bg-opacity-20 rounded-full text-sm">
-                  {user?.role === 'super_admin' ? 'Super Admin' : 
-                   user?.role === 'admin' ? 'Admin' : 
-                   user?.role === 'agent' ? 'Agent' : 'User'}
+          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-8">
+            <div className="flex items-center gap-4">
+              <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+                <span className="text-white font-bold text-3xl">
+                  {user?.name?.charAt(0)?.toUpperCase()}
                 </span>
+              </div>
+              <div className="text-white">
+                <h2 className="text-2xl font-bold">{user?.name}</h2>
+                <div className="flex items-center gap-2 mt-1">
+                  <ShieldCheckIcon className="w-4 h-4" />
+                  <span className="capitalize">{user?.role?.replace('_', ' ')}</span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Profile Form */}
-          <div className="p-8">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">Profile Information</h2>
-              {!isEditing && (
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Edit Profile
-                </button>
-              )}
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Name */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      !isEditing ? 'bg-gray-100 cursor-not-allowed' : ''
-                    }`}
-                  />
+          {/* Profile Info */}
+          <div className="p-6">
+            {!editing ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
+                  <EnvelopeIcon className="w-5 h-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm text-gray-500">Email</p>
+                    <p className="font-medium text-gray-900">{user?.email}</p>
+                  </div>
                 </div>
 
-                {/* Email (read-only) */}
+                <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
+                  <PhoneIcon className="w-5 h-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm text-gray-500">Phone</p>
+                    <p className="font-medium text-gray-900">{user?.phone || 'Not provided'}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
+                  <MapPinIcon className="w-5 h-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm text-gray-500">Address</p>
+                    <p className="font-medium text-gray-900">{user?.address || 'Not provided'}</p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setEditing(true)}
+                  className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-medium flex items-center justify-center gap-2"
+                >
+                  <PencilIcon className="w-5 h-5" />
+                  Edit Profile
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleUpdateProfile} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Address
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
                   <input
                     type="email"
                     value={formData.email}
-                    disabled
-                    className="w-full px-4 py-2 border rounded-lg bg-gray-100 cursor-not-allowed"
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
                   />
                 </div>
-
-                {/* Phone */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone Number
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
                   <input
                     type="tel"
-                    name="phone"
                     value={formData.phone}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      !isEditing ? 'bg-gray-100 cursor-not-allowed' : ''
-                    }`}
+                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
                   />
                 </div>
-
-                {/* Role (read-only) */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Role
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
                   <input
                     type="text"
-                    value={user?.role === 'super_admin' ? 'Super Admin' : 
-                           user?.role === 'admin' ? 'Admin' : 
-                           user?.role === 'agent' ? 'Agent' : 'User'}
-                    disabled
-                    className="w-full px-4 py-2 border rounded-lg bg-gray-100 cursor-not-allowed capitalize"
+                    value={formData.address}
+                    onChange={(e) => setFormData({...formData, address: e.target.value})}
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
                   />
                 </div>
-              </div>
 
-              {/* Address */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Address
-                </label>
-                <textarea
-                  name="address"
-                  value={formData.address}
-                  onChange={handleInputChange}
-                  disabled={!isEditing}
-                  rows="3"
-                  className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    !isEditing ? 'bg-gray-100 cursor-not-allowed' : ''
-                  }`}
-                />
-              </div>
-
-              {/* Action Buttons */}
-              {isEditing && (
-                <div className="flex gap-3 pt-4">
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {loading ? 'Saving...' : 'Save Changes'}
-                  </button>
+                <div className="flex gap-3">
                   <button
                     type="button"
-                    onClick={() => {
-                      setIsEditing(false);
-                      // Reset form to original values
-                      setFormData({
-                        name: user?.name || '',
-                        email: user?.email || '',
-                        phone: user?.phone || '',
-                        address: user?.address || '',
-                        photoURL: user?.photoURL || ''
-                      });
-                    }}
-                    className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                    onClick={() => setEditing(false)}
+                    className="flex-1 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium"
                   >
                     Cancel
                   </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg font-medium disabled:opacity-50"
+                  >
+                    {loading ? 'Saving...' : 'Save Changes'}
+                  </button>
                 </div>
-              )}
-            </form>
-
-            {/* Additional Info */}
-            <div className="mt-8 pt-6 border-t">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Account Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-600">Account Status:</span>
-                  <span className="ml-2 font-medium text-green-600">
-                    {user?.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Auth Provider:</span>
-                  <span className="ml-2 font-medium capitalize">
-                    {user?.authProvider || 'Email'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Member Since:</span>
-                  <span className="ml-2 font-medium">
-                    {user?.registrationDate 
-                      ? new Date(user.registrationDate).toLocaleDateString() 
-                      : 'N/A'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Last Login:</span>
-                  <span className="ml-2 font-medium">
-                    {user?.lastLogin 
-                      ? new Date(user.lastLogin).toLocaleDateString() 
-                      : 'N/A'}
-                  </span>
-                </div>
-              </div>
-            </div>
+              </form>
+            )}
           </div>
         </div>
-      </div>
 
-      <Footer />
-    </div>
+        {/* Change Password Card */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <KeyIcon className="w-5 h-5 text-gray-400" />
+            Security
+          </h3>
+
+          {!changingPassword ? (
+            <button
+              onClick={() => setChangingPassword(true)}
+              className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-medium"
+            >
+              Change Password
+            </button>
+          ) : (
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
+                <input
+                  type="password"
+                  required
+                  value={passwordData.currentPassword}
+                  onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                <input
+                  type="password"
+                  required
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
+                <input
+                  type="password"
+                  required
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setChangingPassword(false)}
+                  className="flex-1 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg font-medium disabled:opacity-50"
+                >
+                  {loading ? 'Changing...' : 'Change Password'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+    </DashboardLayout>
   );
 };
 

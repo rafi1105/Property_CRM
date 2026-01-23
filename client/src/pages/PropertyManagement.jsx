@@ -1,1297 +1,713 @@
 import { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
-import AdminNavbar from '../components/AdminNavbar';
-import { propertyAPI, uploadAPI } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import { propertyAPI, agentAPI } from '../utils/api';
+import { toast } from 'react-toastify';
+import DashboardLayout from '../components/DashboardLayout';
+import { Dialog, Transition } from '@headlessui/react';
+import { Fragment } from 'react';
+import {
+  BuildingOfficeIcon,
+  PlusIcon,
+  XMarkIcon,
+  MagnifyingGlassIcon,
+  FunnelIcon,
+  PencilIcon,
+  TrashIcon,
+  EyeIcon,
+  MapPinIcon,
+  CurrencyDollarIcon,
+  HomeModernIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  PhotoIcon,
+} from '@heroicons/react/24/outline';
 import { locationData } from '../data/locations';
+
+// Helper functions to work with location data
+const getZones = () => Object.keys(locationData);
+const getThanasByZone = (zone) => zone ? Object.keys(locationData[zone] || {}) : [];
+const getAreasByThana = (zone, thana) => (zone && thana) ? (locationData[zone]?.[thana] || []) : [];
 
 const PropertyManagement = () => {
   const { user } = useAuth();
   const [properties, setProperties] = useState([]);
+  const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState(null);
-  const [uploadMethod, setUploadMethod] = useState('url'); // 'url' or 'file'
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [uploadedImages, setUploadedImages] = useState([]);
-  const [uploading, setUploading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const itemsPerPage = 10;
+
   const [formData, setFormData] = useState({
-    name: '',
-    propertyCode: '',
+    title: '',
+    type: 'apartment',
+    purpose: 'sale',
     price: '',
-    location: '',
-    zone: '',
-    thana: '',
-    area: '',
-    type: 'Apartment',
-    subType: '',
+    size: '',
     bedrooms: '',
     bathrooms: '',
-    squareFeet: '',
-    status: 'available',
     description: '',
-    features: '',
+    features: [],
+    location: { zone: '', thana: '', area: '', address: '' },
     images: [],
-    imageUrl: '',
-    videoUrl: '',
-    publishedToFrontend: true
+    status: 'available',
+    assignedAgent: ''
   });
-  const [searchTerm, setSearchTerm] = useState('');
-  const [propertyCodeSearch, setPropertyCodeSearch] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const [filterSubType, setFilterSubType] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [minPrice, setMinPrice] = useState('');
-  const [maxPrice, setMaxPrice] = useState('');
-  const [filterZone, setFilterZone] = useState('all');
-  const [filterThana, setFilterThana] = useState('all');
-  const [filterArea, setFilterArea] = useState('all');
-  
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     fetchProperties();
-  }, []);
+    if (user?.role !== 'agent') fetchAgents();
+  }, [currentPage, filterType, filterStatus, searchTerm]);
 
   const fetchProperties = async () => {
     try {
       setLoading(true);
-      const response = await propertyAPI.getAll({ page: 1, limit: 500 });
-      setProperties(response.data.properties || []);
+      const params = { page: currentPage, limit: itemsPerPage };
+      if (filterType !== 'all') params.type = filterType;
+      if (filterStatus !== 'all') params.status = filterStatus;
+      if (searchTerm) params.search = searchTerm;
+
+      const response = await propertyAPI.getAll(params);
+      const data = response.data;
+      setProperties(Array.isArray(data) ? data : data?.properties || []);
+      setTotalPages(data?.totalPages || 1);
     } catch (error) {
-      console.error('Error fetching properties:', error);
-      toast.error('Failed to load properties');
+      toast.error('Failed to fetch properties');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    
-    if (name === 'zone') {
-      setFormData(prev => ({ 
-        ...prev, 
-        zone: value, 
-        thana: '', 
-        area: '', 
-        location: value 
-      }));
-    } else if (name === 'thana') {
-      setFormData(prev => ({ 
-        ...prev, 
-        thana: value, 
-        area: '', 
-        location: `${value}, ${prev.zone}` 
-      }));
-    } else if (name === 'area') {
-      setFormData(prev => ({ 
-        ...prev, 
-        area: value, 
-        location: `${value}, ${prev.thana}, ${prev.zone}` 
-      }));
-    } else if (name === 'type') {
-      setFormData(prev => ({
-        ...prev,
-        type: value,
-        subType: '',
-        bedrooms: '',
-        bathrooms: ''
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: type === 'checkbox' ? checked : value
-      }));
-    }
-  };
-
-  // Handle file selection
-  const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length > 10) {
-      toast.error('Maximum 10 images allowed at once');
-      return;
-    }
-    setSelectedFiles(files);
-  };
-
-  // Handle file upload
-  const handleFileUpload = async () => {
-    if (selectedFiles.length === 0) {
-      toast.error('Please select files to upload');
-      return;
-    }
-
-    setUploading(true);
+  const fetchAgents = async () => {
     try {
-      const formDataUpload = new FormData();
-      selectedFiles.forEach(file => {
-        formDataUpload.append('images', file);
-      });
-
-      const response = await uploadAPI.uploadImages(formDataUpload);
-      const newImages = response.data.images || [];
-      
-      setUploadedImages(prev => [...prev, ...newImages]);
-      setSelectedFiles([]);
-      toast.success(`${newImages.length} image(s) uploaded successfully`);
-      
-      // Clear the file input
-      const fileInput = document.getElementById('imageFiles');
-      if (fileInput) fileInput.value = '';
+      const response = await agentAPI.getAll();
+      setAgents(response.data?.agents || []);
     } catch (error) {
-      console.error('Error uploading images:', error);
-      toast.error(error.response?.data?.message || 'Failed to upload images');
-    } finally {
-      setUploading(false);
+      console.error('Error fetching agents:', error);
     }
-  };
-
-  // Remove uploaded image from the list
-  const handleRemoveUploadedImage = (index) => {
-    setUploadedImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // Combine URL images and uploaded images
-      let allImages = [];
-      
-      if (uploadMethod === 'url') {
-        allImages = formData.imageUrl ? formData.imageUrl.split(',').map(url => url.trim()).filter(url => url) : [];
-      } else {
-        allImages = [...uploadedImages];
-      }
-      
-      // Also include existing images from formData.images if editing
-      if (showEditModal && formData.images && formData.images.length > 0) {
-        // Filter out any images that might be duplicates
-        const existingImages = formData.images.filter(img => !allImages.includes(img));
-        if (uploadMethod === 'file') {
-          allImages = [...existingImages, ...allImages];
+      const submitData = new FormData();
+      Object.keys(formData).forEach(key => {
+        if (key === 'location' || key === 'features') {
+          submitData.append(key, JSON.stringify(formData[key]));
+        } else if (key === 'images') {
+          formData.images.forEach(img => submitData.append('images', img));
+        } else {
+          submitData.append(key, formData[key]);
         }
-      }
+      });
 
-      const propertyData = {
-        ...formData,
-        price: Number(formData.price),
-        bedrooms: formData.bedrooms ? Number(formData.bedrooms) : 0,
-        bathrooms: formData.bathrooms ? Number(formData.bathrooms) : 0,
-        squareFeet: Number(formData.squareFeet),
-        features: formData.features ? formData.features.split(',').map(f => f.trim()).filter(f => f) : [],
-        images: allImages
-      };
-      delete propertyData.imageUrl; // Remove temporary field
-      
-      // Only include propertyCode if manually entered (let server auto-generate if empty)
-      if (!propertyData.propertyCode || propertyData.propertyCode.trim() === '') {
-        delete propertyData.propertyCode;
-      }
-
-      if (showEditModal && selectedProperty) {
-        await propertyAPI.update(selectedProperty._id, propertyData);
-        toast.success('Property updated successfully');
-      } else {
-        await propertyAPI.create(propertyData);
-        toast.success('Property created successfully');
-      }
-
+      await propertyAPI.create(submitData);
+      toast.success('Property created successfully!');
+      setShowAddModal(false);
       resetForm();
       fetchProperties();
     } catch (error) {
-      console.error('Error saving property:', error);
-      toast.error(error.response?.data?.message || 'Failed to save property');
+      toast.error(error.response?.data?.message || 'Failed to create property');
     }
   };
 
-  const handleEdit = (property) => {
-    setSelectedProperty(property);
-    setFormData({
-      name: property.name,
-      propertyCode: property.propertyCode || '',
-      price: property.price,
-      location: property.location,
-      zone: property.zone || '',
-      thana: property.thana || '',
-      area: property.area || '',
-      type: property.type,
-      subType: property.subType || '',
-      bedrooms: property.bedrooms,
-      bathrooms: property.bathrooms,
-      squareFeet: property.squareFeet,
-      status: property.status,
-      description: property.description || '',
-      features: Array.isArray(property.features) ? property.features.join(', ') : '',
-      images: property.images || [],
-      imageUrl: Array.isArray(property.images) ? property.images.join(', ') : '',
-      videoUrl: property.videoUrl || '',
-      publishedToFrontend: property.publishedToFrontend || false
-    });
-    setShowEditModal(true);
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    try {
+      const submitData = new FormData();
+      Object.keys(formData).forEach(key => {
+        if (key === 'location' || key === 'features') {
+          submitData.append(key, JSON.stringify(formData[key]));
+        } else if (key === 'images') {
+          formData.images.forEach(img => {
+            if (img instanceof File) submitData.append('images', img);
+          });
+        } else {
+          submitData.append(key, formData[key]);
+        }
+      });
+
+      await propertyAPI.update(selectedProperty._id, submitData);
+      toast.success('Property updated successfully!');
+      setShowEditModal(false);
+      resetForm();
+      fetchProperties();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update property');
+    }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this property?')) return;
-    
-    try {
-      await propertyAPI.delete(id);
-      toast.success('Property deleted successfully');
-      fetchProperties();
-    } catch (error) {
-      console.error('Error deleting property:', error);
-      toast.error('Failed to delete property');
+    if (window.confirm('Are you sure you want to delete this property?')) {
+      try {
+        await propertyAPI.delete(id);
+        toast.success('Property deleted successfully!');
+        fetchProperties();
+      } catch (error) {
+        toast.error('Failed to delete property');
+      }
     }
   };
 
   const resetForm = () => {
     setFormData({
-      name: '',
-      propertyCode: '',
+      title: '',
+      type: 'apartment',
+      purpose: 'sale',
       price: '',
-      location: '',
-      zone: '',
-      thana: '',
-      area: '',
-      type: 'Apartment',
-      subType: '',
+      size: '',
       bedrooms: '',
       bathrooms: '',
-      squareFeet: '',
-      status: 'available',
       description: '',
-      features: '',
+      features: [],
+      location: { zone: '', thana: '', area: '', address: '' },
       images: [],
-      imageUrl: '',
-      videoUrl: '',
-      publishedToFrontend: true
+      status: 'available',
+      assignedAgent: ''
     });
     setSelectedProperty(null);
-    setShowAddModal(false);
-    setShowEditModal(false);
-    setUploadMethod('url');
-    setSelectedFiles([]);
-    setUploadedImages([]);
   };
 
-  // Filter and search logic
-  const filteredProperties = properties.filter(property => {
-    // Search filter
-    const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = !searchTerm || 
-      property.name?.toLowerCase().includes(searchLower) ||
-      property.location?.toLowerCase().includes(searchLower) ||
-      property.description?.toLowerCase().includes(searchLower);
-
-    // Property code search
-    const matchesPropertyCode = !propertyCodeSearch || 
-      property.propertyCode?.toLowerCase().includes(propertyCodeSearch.toLowerCase());
-
-    // Type filter
-    const matchesType = filterType === 'all' || property.type === filterType;
-
-    // SubType filter
-    const matchesSubType = filterSubType === 'all' || property.subType === filterSubType;
-
-    // Status filter
-    const matchesStatus = filterStatus === 'all' || property.status === filterStatus;
-
-    // Price range filter
-    const matchesMinPrice = !minPrice || property.price >= Number(minPrice);
-    const matchesMaxPrice = !maxPrice || property.price <= Number(maxPrice);
-
-    // Location filters
-    const matchesZone = filterZone === 'all' || property.zone === filterZone;
-    const matchesThana = filterThana === 'all' || property.thana === filterThana;
-    const matchesArea = filterArea === 'all' || property.area === filterArea;
-
-    return matchesSearch && matchesPropertyCode && matchesType && matchesSubType && matchesStatus && matchesMinPrice && matchesMaxPrice && matchesZone && matchesThana && matchesArea;
-  });
-
-  // Pagination logic
-  const totalPages = Math.ceil(filteredProperties.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedProperties = filteredProperties.slice(startIndex, endIndex);
-
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, propertyCodeSearch, filterType, filterSubType, filterStatus, minPrice, maxPrice, filterZone, filterThana, filterArea]);
-
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
+  const openEditModal = (property) => {
+    setSelectedProperty(property);
+    setFormData({
+      title: property.title || '',
+      type: property.type || 'apartment',
+      purpose: property.purpose || 'sale',
+      price: property.price || '',
+      size: property.size || '',
+      bedrooms: property.bedrooms || '',
+      bathrooms: property.bathrooms || '',
+      description: property.description || '',
+      features: property.features || [],
+      location: property.location || { zone: '', thana: '', area: '', address: '' },
+      images: property.images || [],
+      status: property.status || 'available',
+      assignedAgent: property.assignedAgent?._id || ''
+    });
+    setShowEditModal(true);
   };
+
+  const propertyTypes = ['apartment', 'house', 'villa', 'land', 'commercial', 'office'];
+  const statusOptions = ['available', 'sold', 'rented', 'pending'];
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <AdminNavbar />
-      
-      <div className="container mx-auto px-0 py-10">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">Property Management</h1>
-            <p className="text-gray-600 mt-1">{user?.role === 'agent' ? 'View assigned properties' : 'Add, edit, and manage all properties'}</p>
+    <DashboardLayout title="Properties" subtitle="Manage all property listings">
+      {/* Header Actions */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Search */}
+          <div className="relative">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search properties..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 w-64"
+            />
           </div>
-          {user?.role !== 'agent' && (
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              <span>Add Property</span>
-            </button>
-          )}
+
+          {/* Type Filter */}
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700"
+          >
+            <option value="all">All Types</option>
+            {propertyTypes.map(type => (
+              <option key={type} value={type} className="capitalize">{type}</option>
+            ))}
+          </select>
+
+          {/* Status Filter */}
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700"
+          >
+            <option value="all">All Status</option>
+            {statusOptions.map(status => (
+              <option key={status} value={status} className="capitalize">{status}</option>
+            ))}
+          </select>
         </div>
 
-        {/* Search and Filter Bar */}
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-4">
-            {/* Search */}
-            <div className="lg:col-span-2">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search by name, location..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <svg
-                  className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-              </div>
-            </div>
-
-            {/* Property Code Search */}
-            <div className="lg:col-span-1">
-              <input
-                type="text"
-                placeholder="Property Code"
-                value={propertyCodeSearch}
-                onChange={(e) => setPropertyCodeSearch(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
-              />
-            </div>
-
-            {/* Type Filter */}
-            <div>
-              <select
-                value={filterType}
-                onChange={(e) => {
-                  setFilterType(e.target.value);
-                  setFilterSubType('all');
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">All Types</option>
-                <option value="Apartment">Apartment</option>
-                <option value="House">Home/House</option>
-                <option value="Duplex">Duplex/Triplex</option>
-                <option value="Land">Plot/Land</option>
-                <option value="Commercial">Commercial Space</option>
-              </select>
-            </div>
-
-            {/* SubType Filter */}
-            <div>
-              <select
-                value={filterSubType}
-                onChange={(e) => setFilterSubType(e.target.value)}
-                disabled={filterType === 'all'}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-              >
-                <option value="all">All SubTypes</option>
-                {filterType === 'Apartment' && (
-                  <>
-                    <option value="Brand New Flat">Brand New Flat</option>
-                    <option value="Used Flat">Used Flat</option>
-                    <option value="Flat with Bank Loan">Flat with Bank Loan</option>
-                    <option value="Flat with Gas">Flat with Gas</option>
-                    <option value="Upcoming Flat">Upcoming Flat</option>
-                    <option value="Luxury Flat">Luxury Flat</option>
-                  </>
-                )}
-                {filterType === 'House' && (
-                  <>
-                    <option value="Ready Made">Ready Made</option>
-                    <option value="Home with Gas">Home with Gas</option>
-                  </>
-                )}
-                {filterType === 'Land' && (
-                  <>
-                    <option value="Ready Plot">Ready Plot</option>
-                    <option value="Developing Plot">Developing Plot</option>
-                    <option value="Project Plot">Project Plot</option>
-                  </>
-                )}
-                {filterType === 'Commercial' && (
-                  <>
-                    <option value="Shop">Shop</option>
-                    <option value="Office">Office</option>
-                    <option value="Industrial">Industrial</option>
-                  </>
-                )}
-              </select>
-            </div>
-
-            {/* Status Filter */}
-            <div>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">All Status</option>
-                <option value="available">Available</option>
-                <option value="sold">Sold</option>
-                <option value="pending">Pending</option>
-                <option value="rented">Rented</option>
-              </select>
-            </div>
-
-            {/* Min Price */}
-            <div>
-              <input
-                type="number"
-                placeholder="Min Price"
-                value={minPrice}
-                onChange={(e) => setMinPrice(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            {/* Max Price */}
-            <div>
-              <input
-                type="number"
-                placeholder="Max Price"
-                value={maxPrice}
-                onChange={(e) => setMaxPrice(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          {/* Location Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-            <div>
-              <select
-                value={filterZone}
-                onChange={(e) => {
-                  setFilterZone(e.target.value);
-                  setFilterThana('all');
-                  setFilterArea('all');
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">All Zones</option>
-                {Object.keys(locationData).map(zone => (
-                  <option key={zone} value={zone}>{zone}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <select
-                value={filterThana}
-                onChange={(e) => {
-                  setFilterThana(e.target.value);
-                  setFilterArea('all');
-                }}
-                disabled={filterZone === 'all'}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-              >
-                <option value="all">All Thanas</option>
-                {filterZone !== 'all' && locationData[filterZone] && Object.keys(locationData[filterZone] || {}).map(thana => (
-                  <option key={thana} value={thana}>{thana}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <select
-                value={filterArea}
-                onChange={(e) => setFilterArea(e.target.value)}
-                disabled={filterThana === 'all'}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-              >
-                <option value="all">All Areas</option>
-                {filterZone !== 'all' && filterThana !== 'all' && locationData[filterZone]?.[filterThana] && locationData[filterZone][filterThana].map(area => (
-                  <option key={area} value={area}>{area}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Active Filters Display */}
-          {(searchTerm || filterType !== 'all' || filterStatus !== 'all' || minPrice || maxPrice || filterZone !== 'all' || filterThana !== 'all' || filterArea !== 'all') && (
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="text-sm text-gray-600 font-medium">Active Filters:</span>
-              {searchTerm && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                  Search: "{searchTerm}"
-                  <button onClick={() => setSearchTerm('')} className="hover:text-blue-900">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </span>
-              )}
-              {filterType !== 'all' && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
-                  Type: {filterType}
-                  <button onClick={() => setFilterType('all')} className="hover:text-purple-900">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </span>
-              )}
-              {filterStatus !== 'all' && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
-                  Status: {filterStatus}
-                  <button onClick={() => setFilterStatus('all')} className="hover:text-green-900">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </span>
-              )}
-              {minPrice && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm">
-                  Min: ৳{Number(minPrice).toLocaleString()}
-                  <button onClick={() => setMinPrice('')} className="hover:text-orange-900">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </span>
-              )}
-              {maxPrice && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm">
-                  Max: ৳{Number(maxPrice).toLocaleString()}
-                  <button onClick={() => setMaxPrice('')} className="hover:text-red-900">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </span>
-              )}
-              {filterZone !== 'all' && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">
-                  Zone: {filterZone}
-                  <button onClick={() => {
-                    setFilterZone('all');
-                    setFilterThana('all');
-                    setFilterArea('all');
-                  }} className="hover:text-indigo-900">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </span>
-              )}
-              {filterThana !== 'all' && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">
-                  Thana: {filterThana}
-                  <button onClick={() => {
-                    setFilterThana('all');
-                    setFilterArea('all');
-                  }} className="hover:text-indigo-900">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </span>
-              )}
-              {filterArea !== 'all' && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">
-                  Area: {filterArea}
-                  <button onClick={() => setFilterArea('all')} className="hover:text-indigo-900">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </span>
-              )}
-              <button
-                onClick={() => {
-                  setSearchTerm('');
-                  setFilterType('all');
-                  setFilterStatus('all');
-                  setMinPrice('');
-                  setMaxPrice('');
-                  setFilterZone('all');
-                  setFilterThana('all');
-                  setFilterArea('all');
-                }}
-                className="text-sm text-red-600 hover:text-red-800 font-medium"
-              >
-                Clear All
-              </button>
-            </div>
-          )}
-
-          {/* Results Count and Items Per Page */}
-          <div className="mt-4 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-            <div className="text-sm text-gray-600">
-              Showing {filteredProperties.length > 0 ? startIndex + 1 : 0}-{Math.min(endIndex, filteredProperties.length)} of {filteredProperties.length} properties
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">Show:</span>
-              <select
-                value={itemsPerPage}
-                onChange={(e) => {
-                  setItemsPerPage(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
-              <span className="text-sm text-gray-600">per page</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Properties Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          {loading ? (
-            <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading properties...</p>
-            </div>
-          ) : filteredProperties.length === 0 ? (
-            <div className="p-8 text-center">
-              <p className="text-gray-600">
-                {properties.length === 0 
-                  ? 'No properties found. Add your first property to get started.'
-                  : 'No properties match your filters. Try adjusting your search criteria.'}
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-blue-600  ">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Code</th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Property</th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Location</th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Price</th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Type</th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {paginatedProperties.map((property) => (
-                      <tr key={property._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-700">
-                            {property.propertyCode || 'N/A'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm font-bold text-gray-900">{property.name}</div>
-                          <div className="text-sm text-gray-500">{property.bedrooms} bed • {property.bathrooms} bath</div>
-                        </td>
-                        <td className="px-4 py-4  text-sm text-gray-900">{property.location}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-900">৳{property.price?.toLocaleString()}</td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">{property.type}</td>
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            property.status === 'available' ? 'bg-green-100 text-green-800' :
-                            property.status === 'sold' ? 'bg-red-100 text-red-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {property.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          {user?.role === 'agent' ? (
-                            <span className="text-gray-500 italic">View Only</span>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => handleEdit(property)}
-                                className="text-blue-600 hover:text-blue-900 mr-4"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => handleDelete(property._id)}
-                                className="text-red-600 hover:text-red-900"
-                              >
-                                Delete
-                              </button>
-                            </>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pagination Controls */}
-              {totalPages > 1 && (
-                <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4">
-                  <p className="text-sm text-gray-600">
-                    Page {currentPage} of {totalPages}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handlePageChange(1)}
-                      disabled={currentPage === 1}
-                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-                      </svg>
-                    </button>
-                    
-                    {/* Page Numbers */}
-                    {Array.from({ length: totalPages }, (_, i) => i + 1)
-                      .filter(page => {
-                        if (totalPages <= 7) return true;
-                        if (page === 1 || page === totalPages) return true;
-                        if (Math.abs(page - currentPage) <= 1) return true;
-                        return false;
-                      })
-                      .map((page, index, array) => (
-                        <span key={page} className="flex items-center">
-                          {index > 0 && array[index - 1] !== page - 1 && (
-                            <span className="px-1 text-gray-400">...</span>
-                          )}
-                          <button
-                            onClick={() => handlePageChange(page)}
-                            className={`px-3 py-1 rounded ${
-                              currentPage === page
-                                ? 'bg-blue-600 text-white'
-                                : 'border border-gray-300 hover:bg-gray-100'
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        </span>
-                      ))}
-
-                    <button
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => handlePageChange(totalPages)}
-                      disabled={currentPage === totalPages}
-                      className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+        {user?.role !== 'agent' && (
+          <button
+            onClick={() => { resetForm(); setShowAddModal(true); }}
+            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:shadow-purple-500/30 transition-all font-medium"
+          >
+            <PlusIcon className="w-5 h-5" />
+            Add Property
+          </button>
+        )}
       </div>
 
-      {/* Add/Edit Modal */}
-      {(showAddModal || showEditModal) && (
-        <div className="fixed inset-0 bg-gray-200 bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-800">
-                {showEditModal ? 'Edit Property' : 'Add New Property'}
-              </h2>
-              <button onClick={resetForm} className="text-gray-500 hover:text-gray-700">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Property Name</label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Property Code</label>
-                  <input
-                    type="text"
-                    name="propertyCode"
-                    value={formData.propertyCode}
-                    onChange={handleInputChange}
-                    placeholder="Auto-generated if empty"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Leave empty for auto-generated code</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Price (৳)</label>
-                  <input
-                    type="number"
-                    name="price"
-                    value={formData.price}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Zone</label>
-                    <select
-                      name="zone"
-                      value={formData.zone}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">Select Zone</option>
-                      {Object.keys(locationData).map(zone => (
-                        <option key={zone} value={zone}>{zone}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Thana</label>
-                    <select
-                      name="thana"
-                      value={formData.thana}
-                      onChange={handleInputChange}
-                      disabled={!formData.zone}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-                    >
-                      <option value="">Select Thana</option>
-                      {formData.zone && locationData[formData.zone] && Object.keys(locationData[formData.zone] || {}).map(thana => (
-                        <option key={thana} value={thana}>{thana}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Area</label>
-                    <select
-                      name="area"
-                      value={formData.area}
-                      onChange={handleInputChange}
-                      disabled={!formData.thana}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-                    >
-                      <option value="">Select Area</option>
-                      {formData.zone && formData.thana && locationData[formData.zone]?.[formData.thana] && locationData[formData.zone][formData.thana].map(area => (
-                        <option key={area} value={area}>{area}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Location</label>
-                  <input
-                    type="text"
-                    name="location"
-                    value={formData.location}
-                    readOnly
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                  <select
-                    name="type"
-                    value={formData.type}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="Apartment">Apartment</option>
-                    <option value="House">Home/House</option>
-                    <option value="Duplex">Duplex/Triplex</option>
-                    <option value="Land">Plot/Land</option>
-                    <option value="Commercial">Commercial Space</option>
-                  </select>
-                </div>
-
-                {/* Conditional SubType Field */}
-                {formData.type === 'Apartment' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Apartment Type</label>
-                    <select
-                      name="subType"
-                      value={formData.subType}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">Select Type</option>
-                      <option value="Brand New Flat">Brand New Flat</option>
-                      <option value="Used Flat">Used Flat</option>
-                      <option value="Flat with Bank Loan">Flat with Bank Loan</option>
-                      <option value="Flat with Gas">Flat with Gas</option>
-                      <option value="Upcoming Flat">Upcoming Flat</option>
-                      <option value="Luxury Flat">Luxury Flat</option>
-                    </select>
-                  </div>
-                )}
-
-                {formData.type === 'House' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Home Type</label>
-                    <select
-                      name="subType"
-                      value={formData.subType}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">Select Type</option>
-                      <option value="Ready Made Home">Readymade Home</option>
-                      <option value="Home with Gas">Home with Gas</option>
-                    </select>
-                  </div>
-                )}
-
-                {formData.type === 'Land' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Plot Type</label>
-                    <select
-                      name="subType"
-                      value={formData.subType}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">Select Type</option>
-                      <option value="Ready Plot">Ready Plot</option>
-                      <option value="Developing Plot">Developing Plot</option>
-                      <option value="Project Plot">Project Plot</option>
-                    </select>
-                  </div>
-                )}
-
-                {formData.type === 'Commercial' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Commercial Type</label>
-                    <select
-                      name="subType"
-                      value={formData.subType}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">Select Type</option>
-                      <option value="Shop">Shop</option>
-                      <option value="Office">Office</option>
-                      <option value="Industrial">Industrial</option>
-                    </select>
-                  </div>
-                )}
-
-                {/* Status field stays the same position */}
-                {(formData.type !== 'Apartment' && formData.type !== 'House' && formData.type !== 'Land' && formData.type !== 'Commercial') && (
-                  <div></div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                  <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="available">Available</option>
-                    <option value="pending">Pending</option>
-                    <option value="sold">Sold</option>
-                  </select>
-                </div>
-
-                {/* Show bedrooms/bathrooms only for Apartment and Duplex */}
-                {(formData.type === 'Apartment' || formData.type === 'Duplex') && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Bedrooms</label>
-                      <input
-                        type="number"
-                        name="bedrooms"
-                        value={formData.bedrooms}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Bathrooms</label>
-                      <input
-                        type="number"
-                        name="bathrooms"
-                        value={formData.bathrooms}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                  </>
-                )}
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {formData.type === 'House' || formData.type === 'Land' ? 'Katha' : 'Square Feet'}
-                  </label>
-                  <input
-                    type="text"
-                    name="squareFeet"
-                    value={formData.squareFeet}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    rows="3"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                {/* Image Upload Section */}
-                <div className="md:col-span-2 border border-gray-200 rounded-lg p-4 bg-gray-50">
-                  <label className="block text-sm font-medium text-gray-700 mb-3">Property Images</label>
-                  
-                  {/* Upload Method Toggle */}
-                  <div className="flex space-x-4 mb-4">
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        name="uploadMethod"
-                        value="url"
-                        checked={uploadMethod === 'url'}
-                        onChange={(e) => setUploadMethod(e.target.value)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                      />
-                      <span className="ml-2 text-sm text-gray-700">Image URLs</span>
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        name="uploadMethod"
-                        value="file"
-                        checked={uploadMethod === 'file'}
-                        onChange={(e) => setUploadMethod(e.target.value)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
-                      />
-                      <span className="ml-2 text-sm text-gray-700">Upload Files</span>
-                    </label>
-                  </div>
-
-                  {/* URL Input Method */}
-                  {uploadMethod === 'url' && (
-                    <div>
-                      <input
-                        type="text"
-                        name="imageUrl"
-                        value={formData.imageUrl}
-                        onChange={handleInputChange}
-                        placeholder="e.g., https://example.com/image1.jpg, https://example.com/image2.jpg"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Enter multiple image URLs separated by commas</p>
+      {/* Properties Grid */}
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="w-10 h-10 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {properties.map((property) => (
+              <div key={property._id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow group">
+                {/* Property Image */}
+                <div className="relative h-48 bg-gray-100">
+                  {property.images?.[0] ? (
+                    <img
+                      src={property.images[0]}
+                      alt={property.title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <BuildingOfficeIcon className="w-16 h-16 text-gray-300" />
                     </div>
                   )}
+                  <div className="absolute top-3 left-3">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      property.status === 'available' ? 'bg-green-500 text-white' :
+                      property.status === 'sold' ? 'bg-red-500 text-white' :
+                      property.status === 'rented' ? 'bg-blue-500 text-white' :
+                      'bg-yellow-500 text-white'
+                    }`}>
+                      {property.status}
+                    </span>
+                  </div>
+                  <div className="absolute top-3 right-3">
+                    <span className="px-3 py-1 bg-purple-600 text-white rounded-full text-xs font-medium capitalize">
+                      {property.purpose}
+                    </span>
+                  </div>
+                </div>
 
-                  {/* File Upload Method */}
-                  {uploadMethod === 'file' && (
-                    <div>
-                      <div className="flex items-center space-x-3">
+                {/* Property Info */}
+                <div className="p-5">
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="font-semibold text-gray-900 text-lg line-clamp-1">{property.title}</h3>
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">
+                      {property.propertyCode}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1 text-gray-500 mb-3">
+                    <MapPinIcon className="w-4 h-4" />
+                    <span className="text-sm truncate">{property.location?.area}, {property.location?.district}</span>
+                  </div>
+
+                  <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
+                    <span className="flex items-center gap-1">
+                      <HomeModernIcon className="w-4 h-4" />
+                      {property.type}
+                    </span>
+                    <span>{property.size} sqft</span>
+                    {property.bedrooms && <span>{property.bedrooms} Beds</span>}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <span className="text-xl font-bold text-purple-600">
+                      ৳{property.price?.toLocaleString()}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => { setSelectedProperty(property); setShowViewModal(true); }}
+                        className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      >
+                        <EyeIcon className="w-5 h-5" />
+                      </button>
+                      {user?.role !== 'agent' && (
+                        <>
+                          <button
+                            onClick={() => openEditModal(property)}
+                            className="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                          >
+                            <PencilIcon className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(property._id)}
+                            className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <TrashIcon className="w-5 h-5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-8">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronLeftIcon className="w-5 h-5" />
+              </button>
+              {[...Array(totalPages)].map((_, i) => (
+                <button
+                  key={i + 1}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`w-10 h-10 rounded-lg font-medium transition-colors ${
+                    currentPage === i + 1
+                      ? 'bg-purple-600 text-white'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronRightIcon className="w-5 h-5" />
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Add/Edit Modal */}
+      <Transition appear show={showAddModal || showEditModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => { setShowAddModal(false); setShowEditModal(false); }}>
+          <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
+                <Dialog.Panel className="w-full max-w-2xl bg-white rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
+                  <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
+                    <Dialog.Title className="text-xl font-semibold text-gray-900">
+                      {showEditModal ? 'Edit Property' : 'Add New Property'}
+                    </Dialog.Title>
+                    <button onClick={() => { setShowAddModal(false); setShowEditModal(false); }} className="p-2 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-100">
+                      <XMarkIcon className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <form onSubmit={showEditModal ? handleUpdate : handleSubmit} className="p-6 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
                         <input
-                          type="file"
-                          id="imageFiles"
-                          multiple
-                          accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                          onChange={handleFileSelect}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                          type="text"
+                          required
+                          value={formData.title}
+                          onChange={(e) => setFormData({...formData, title: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                          placeholder="Property title"
                         />
-                        <button
-                          type="button"
-                          onClick={handleFileUpload}
-                          disabled={uploading || selectedFiles.length === 0}
-                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center space-x-2"
-                        >
-                          {uploading ? (
-                            <>
-                              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                              </svg>
-                              <span>Uploading...</span>
-                            </>
-                          ) : (
-                            <>
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                              </svg>
-                              <span>Upload</span>
-                            </>
-                          )}
-                        </button>
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">Select up to 10 images (JPEG, PNG, GIF, WebP). Max 10MB each.</p>
-                      
-                      {/* Selected files preview */}
-                      {selectedFiles.length > 0 && (
-                        <div className="mt-2 p-2 bg-blue-50 rounded-lg">
-                          <p className="text-sm text-blue-700">{selectedFiles.length} file(s) selected:</p>
-                          <ul className="text-xs text-blue-600 mt-1">
-                            {selectedFiles.map((file, index) => (
-                              <li key={index}>{file.name} ({(file.size / 1024).toFixed(1)} KB)</li>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                        <select
+                          value={formData.type}
+                          onChange={(e) => setFormData({...formData, type: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                        >
+                          {propertyTypes.map(type => (
+                            <option key={type} value={type} className="capitalize">{type}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Purpose</label>
+                        <select
+                          value={formData.purpose}
+                          onChange={(e) => setFormData({...formData, purpose: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                        >
+                          <option value="sale">For Sale</option>
+                          <option value="rent">For Rent</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Price (৳)</label>
+                        <input
+                          type="number"
+                          required
+                          value={formData.price}
+                          onChange={(e) => setFormData({...formData, price: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                          placeholder="Enter price"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Size (sqft)</label>
+                        <input
+                          type="number"
+                          required
+                          value={formData.size}
+                          onChange={(e) => setFormData({...formData, size: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                          placeholder="Enter size"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Bedrooms</label>
+                        <input
+                          type="number"
+                          value={formData.bedrooms}
+                          onChange={(e) => setFormData({...formData, bedrooms: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                          placeholder="Number of bedrooms"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Bathrooms</label>
+                        <input
+                          type="number"
+                          value={formData.bathrooms}
+                          onChange={(e) => setFormData({...formData, bathrooms: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                          placeholder="Number of bathrooms"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Zone</label>
+                        <select
+                          value={formData.location.zone}
+                          onChange={(e) => setFormData({...formData, location: {...formData.location, zone: e.target.value, thana: '', area: ''}})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                        >
+                          <option value="">Select Zone</option>
+                          {getZones().map(zone => (
+                            <option key={zone} value={zone}>{zone}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Thana</label>
+                        <select
+                          value={formData.location.thana}
+                          onChange={(e) => setFormData({...formData, location: {...formData.location, thana: e.target.value, area: ''}})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                          disabled={!formData.location.zone}
+                        >
+                          <option value="">Select Thana</option>
+                          {formData.location.zone && getThanasByZone(formData.location.zone).map(thana => (
+                            <option key={thana} value={thana}>{thana}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Area</label>
+                        <select
+                          value={formData.location.area}
+                          onChange={(e) => setFormData({...formData, location: {...formData.location, area: e.target.value}})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                          disabled={!formData.location.thana}
+                        >
+                          <option value="">Select Area</option>
+                          {formData.location.thana && getAreasByThana(formData.location.zone, formData.location.thana).map(area => (
+                            <option key={area} value={area}>{area}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                        <select
+                          value={formData.status}
+                          onChange={(e) => setFormData({...formData, status: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                        >
+                          {statusOptions.map(status => (
+                            <option key={status} value={status} className="capitalize">{status}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {user?.role !== 'agent' && agents.length > 0 && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Assign Agent</label>
+                          <select
+                            value={formData.assignedAgent}
+                            onChange={(e) => setFormData({...formData, assignedAgent: e.target.value})}
+                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                          >
+                            <option value="">Select Agent</option>
+                            {agents.map(agent => (
+                              <option key={agent._id} value={agent._id}>{agent.name}</option>
                             ))}
-                          </ul>
+                          </select>
                         </div>
                       )}
 
-                      {/* Uploaded images preview */}
-                      {uploadedImages.length > 0 && (
-                        <div className="mt-4">
-                          <p className="text-sm font-medium text-gray-700 mb-2">Uploaded Images ({uploadedImages.length}):</p>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                            {uploadedImages.map((url, index) => (
-                              <div key={index} className="relative group">
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+                        <input
+                          type="text"
+                          value={formData.location.address}
+                          onChange={(e) => setFormData({...formData, location: {...formData.location, address: e.target.value}})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                          placeholder="Full address"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                        <textarea
+                          rows={4}
+                          value={formData.description}
+                          onChange={(e) => setFormData({...formData, description: e.target.value})}
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 resize-none"
+                          placeholder="Property description"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Images</label>
+                        <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-purple-400 transition-colors">
+                          <PhotoIcon className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+                          <input
+                            type="file"
+                            multiple
+                            accept="image/*"
+                            onChange={(e) => setFormData({...formData, images: [...formData.images, ...Array.from(e.target.files)]})}
+                            className="hidden"
+                            id="images"
+                          />
+                          <label htmlFor="images" className="text-purple-600 hover:text-purple-700 cursor-pointer font-medium">
+                            Click to upload images
+                          </label>
+                          <p className="text-sm text-gray-500 mt-1">PNG, JPG up to 5MB each</p>
+                        </div>
+                        {formData.images.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-3">
+                            {formData.images.map((img, idx) => (
+                              <div key={idx} className="relative">
                                 <img
-                                  src={url}
-                                  alt={`Uploaded ${index + 1}`}
-                                  className="w-full h-24 object-cover rounded-lg border border-gray-200"
+                                  src={img instanceof File ? URL.createObjectURL(img) : img}
+                                  alt=""
+                                  className="w-20 h-20 object-cover rounded-lg"
                                 />
                                 <button
                                   type="button"
-                                  onClick={() => handleRemoveUploadedImage(index)}
-                                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={() => setFormData({...formData, images: formData.images.filter((_, i) => i !== idx)})}
+                                  className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center"
                                 >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
+                                  <XMarkIcon className="w-4 h-4" />
                                 </button>
                               </div>
                             ))}
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Show existing images when editing */}
-                  {showEditModal && formData.images && formData.images.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <p className="text-sm font-medium text-gray-700 mb-2">Current Images ({formData.images.length}):</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                        {formData.images.map((url, index) => (
-                          <div key={index} className="relative">
-                            <img
-                              src={url}
-                              alt={`Current ${index + 1}`}
-                              className="w-full h-24 object-cover rounded-lg border border-gray-200"
-                            />
-                          </div>
-                        ))}
+                        )}
                       </div>
                     </div>
-                  )}
-                </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Features (comma-separated)</label>
-                  <input
-                    type="text"
-                    name="features"
-                    value={formData.features}
-                    onChange={handleInputChange}
-                    placeholder="e.g., Pool, Garage, Garden, Security"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">YouTube Video URL</label>
-                  <input
-                    type="url"
-                    name="videoUrl"
-                    value={formData.videoUrl}
-                    onChange={handleInputChange}
-                    placeholder="e.g., https://www.youtube.com/watch?v=VIDEO_ID or https://youtu.be/VIDEO_ID"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Add a YouTube video tour or walkthrough of the property</p>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  {showEditModal ? 'Update Property' : 'Add Property'}
-                </button>
-              </div>
-            </form>
+                    <div className="flex gap-3 pt-4 border-t">
+                      <button type="button" onClick={() => { setShowAddModal(false); setShowEditModal(false); }} className="flex-1 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium">
+                        Cancel
+                      </button>
+                      <button type="submit" className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg font-medium">
+                        {showEditModal ? 'Update Property' : 'Create Property'}
+                      </button>
+                    </div>
+                  </form>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        </Dialog>
+      </Transition>
+
+      {/* View Modal */}
+      <Transition appear show={showViewModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setShowViewModal(false)}>
+          <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
+                <Dialog.Panel className="w-full max-w-2xl bg-white rounded-2xl shadow-xl overflow-hidden">
+                  {selectedProperty && (
+                    <>
+                      <div className="h-64 bg-gray-100 relative">
+                        {selectedProperty.images?.[0] ? (
+                          <img src={selectedProperty.images[0]} alt={selectedProperty.title} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <BuildingOfficeIcon className="w-20 h-20 text-gray-300" />
+                          </div>
+                        )}
+                        <button onClick={() => setShowViewModal(false)} className="absolute top-4 right-4 p-2 bg-white/90 rounded-xl hover:bg-white">
+                          <XMarkIcon className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <div className="p-6">
+                        <div className="flex items-start justify-between mb-4">
+                          <div>
+                            <h2 className="text-2xl font-bold text-gray-900">{selectedProperty.title}</h2>
+                            <p className="text-gray-500 flex items-center gap-1 mt-1">
+                              <MapPinIcon className="w-4 h-4" />
+                              {selectedProperty.location?.address || `${selectedProperty.location?.area}, ${selectedProperty.location?.district}`}
+                            </p>
+                          </div>
+                          <span className="text-2xl font-bold text-purple-600">৳{selectedProperty.price?.toLocaleString()}</span>
+                        </div>
+
+                        <div className="grid grid-cols-4 gap-4 py-4 border-y border-gray-100">
+                          <div className="text-center">
+                            <p className="text-2xl font-semibold text-gray-900">{selectedProperty.size}</p>
+                            <p className="text-sm text-gray-500">Sq. Ft.</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-2xl font-semibold text-gray-900">{selectedProperty.bedrooms || '-'}</p>
+                            <p className="text-sm text-gray-500">Beds</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-2xl font-semibold text-gray-900">{selectedProperty.bathrooms || '-'}</p>
+                            <p className="text-sm text-gray-500">Baths</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-2xl font-semibold text-gray-900 capitalize">{selectedProperty.type}</p>
+                            <p className="text-sm text-gray-500">Type</p>
+                          </div>
+                        </div>
+
+                        <div className="mt-4">
+                          <h3 className="font-semibold text-gray-900 mb-2">Description</h3>
+                          <p className="text-gray-600">{selectedProperty.description || 'No description available.'}</p>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+    </DashboardLayout>
   );
 };
 

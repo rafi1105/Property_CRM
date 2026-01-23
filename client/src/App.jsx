@@ -1,12 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router';
 import { useAuth } from './context/AuthContext';
-import Home from './pages/Home';
-import Property from './pages/Property';
-import PropertyDetails from './pages/PropertyDetails';
-import About from './pages/About';
-import Contact from './pages/Contact';
-import Login from './pages/Login';
-import Register from './pages/Register';
 import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import PropertyManagement from './pages/PropertyManagement';
@@ -20,23 +13,41 @@ import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
 function App() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+
+  // Redirect to dashboard if already authenticated
+  const getDefaultRedirect = () => {
+    if (!user) return '/admin-login';
+    return '/dashboard';
+  };
 
   return (
     <Routes>
-      {/* Public routes - only Home is accessible without login */}
-      <Route path="/" element={<Home />} />
-      <Route path="/login" element={isAuthenticated ? <Navigate to="/" /> : <Login />} />
-      <Route path="/register" element={isAuthenticated ? <Navigate to="/" /> : <Register />} />
-      <Route path="/admin-login" element={isAuthenticated ? <Navigate to="/" /> : <AdminLogin />} />
-
-      {/* Public routes - accessible without authentication */}
-      <Route path="/property" element={<Property />} />
-      <Route path="/property/:id" element={<PropertyDetails />} />
-      <Route path="/about" element={<About />} />
-      <Route path="/contact" element={<Contact />} />
+      {/* Default route - redirect to admin login or dashboard */}
+      <Route 
+        path="/" 
+        element={
+          isAuthenticated ? 
+            <Navigate to={getDefaultRedirect()} replace /> : 
+            <Navigate to="/admin-login" replace />
+        } 
+      />
+      
+      {/* Admin Login - redirect to dashboard if already authenticated */}
+      <Route 
+        path="/admin-login" 
+        element={isAuthenticated ? <Navigate to={getDefaultRedirect()} replace /> : <AdminLogin />} 
+      />
 
       {/* Dashboard routes */}
+      <Route 
+        path="/dashboard" 
+        element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'agent']}>
+            <AdminDashboard />
+          </ProtectedRoute>
+        } 
+      />
       <Route 
         path="/dashboard/super-admin" 
         element={

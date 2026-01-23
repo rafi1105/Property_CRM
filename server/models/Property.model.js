@@ -14,6 +14,7 @@ const propertySchema = new mongoose.Schema({
   propertyCode: {
     type: String,
     unique: true
+    // Note: unique: true automatically creates an index, so no need for separate index
   },
   name: {
     type: String,
@@ -143,7 +144,7 @@ const propertySchema = new mongoose.Schema({
 propertySchema.index({ name: 'text', location: 'text', description: 'text' });
 propertySchema.index({ type: 1, state: 1, status: 1 });
 propertySchema.index({ price: 1 });
-propertySchema.index({ propertyCode: 1 });
+// Note: propertyCode already has unique index from schema definition
 
 // Pre-save hook to ensure propertyCode is generated with simple format (code-101, code-102, etc.)
 propertySchema.pre('save', async function(next) {
