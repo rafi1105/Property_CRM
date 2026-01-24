@@ -19,13 +19,66 @@ export const createProperty = async (req, res) => {
 
     // Set default image if no images provided
     const defaultImage = 'https://www.cgarchitect.com/rails/active_storage/representations/proxy/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBaU9PIiwiZXhwIjpudWxsLCJwdXIiOiJibG9iX2lkIn19--92fa0cb79901946f19fe52183638a75f9ed20653/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaDdCem9VY21WemFYcGxYM1J2WDJ4cGJXbDBXd2RwQWxZRk1Eb0tjMkYyWlhKN0Jqb01jWFZoYkdsMGVXbGsiLCJleHAiOm51bGwsInB1ciI6InZhcmlhdGlvbiJ9fQ==--a140f81341e053a34b77dbf5e04e777cacb11aff/f2228016.jpg';
-    const images = (!req.body.images || req.body.images.length === 0) ? [defaultImage] : req.body.images;
+    
+    // Handle uploaded files from multer
+    let images = [];
+    if (req.files && req.files.length > 0) {
+      images = req.files.map(file => `/uploads/properties/${file.filename}`);
+    } else if (req.body.images && req.body.images.length > 0) {
+      images = Array.isArray(req.body.images) ? req.body.images : [req.body.images];
+    } else {
+      images = [defaultImage];
+    }
 
-    const property = await Property.create({
+    // Parse location if it's a JSON string
+    let locationData = req.body.location;
+    if (typeof locationData === 'string') {
+      try {
+        locationData = JSON.parse(locationData);
+      } catch (e) {
+        locationData = {};
+      }
+    }
+
+    // Parse features if it's a JSON string
+    let features = req.body.features;
+    if (typeof features === 'string') {
+      try {
+        features = JSON.parse(features);
+      } catch (e) {
+        features = [];
+      }
+    }
+
+    // Extract location fields
+    const propertyData = {
       ...req.body,
       images,
+      features: features || [],
+      zone: locationData?.zone || req.body.zone || '',
+      thana: locationData?.thana || req.body.thana || '',
+      area: locationData?.area || req.body.area || '',
+      address: locationData?.address || req.body.address || '',
+      location: locationData?.address || req.body.location || `${locationData?.area || ''}, ${locationData?.thana || ''}`,
       uploadedBy: req.user._id
-    });
+    };
+
+    // Remove the nested location field if it exists
+    delete propertyData.location;
+    // Set location as a string representation
+    propertyData.location = `${propertyData.area}, ${propertyData.thana}`.trim().replace(/^,\s*|,\s*$/g, '');
+
+    // Handle empty assignedAgent - remove if empty string
+    if (!propertyData.assignedAgent || propertyData.assignedAgent === '') {
+      delete propertyData.assignedAgent;
+    }
+
+    // Map frontend 'sale' value to backend 'sell' for state field
+    if (propertyData.state === 'sale') {
+      propertyData.state = 'sell';
+    }
+
+    const property = await Property.create(propertyData);
 
     // Notify all users (admin, super_admin, and agents) about new property
     try {
@@ -89,6 +142,7 @@ export const getAllProperties = async (req, res) => {
     if (type) query.type = type;
     if (state) query.state = state;
     if (status) query.status = status;
+    // Support zone filtering - check if zone matches exactly
     if (zone) query.zone = zone;
     if (propertyCode) query.propertyCode = new RegExp(propertyCode, 'i');
     if (minPrice || maxPrice) {
@@ -97,8 +151,16 @@ export const getAllProperties = async (req, res) => {
       if (maxPrice) query.price.$lte = Number(maxPrice);
     }
     if (location) query.location = new RegExp(location, 'i');
+    
+    // Use regex search instead of $text for better compatibility
     if (search) {
-      query.$text = { $search: search };
+      const searchRegex = new RegExp(search, 'i');
+      query.$or = [
+        { name: searchRegex },
+        { location: searchRegex },
+        { description: searchRegex },
+        { propertyCode: searchRegex }
+      ];
     }
 
     // Execute query
@@ -208,9 +270,69 @@ export const updateProperty = async (req, res) => {
       req.body.propertyCode = `${CODE_PREFIX}-${nextNumber}`;
     }
 
+    // Parse location if it's a JSON string
+    let locationData = req.body.location;
+    if (typeof locationData === 'string') {
+      try {
+        locationData = JSON.parse(locationData);
+      } catch (e) {
+        locationData = {};
+      }
+    }
+
+    // Parse features if it's a JSON string
+    let features = req.body.features;
+    if (typeof features === 'string') {
+      try {
+        features = JSON.parse(features);
+      } catch (e) {
+        features = undefined; // Don't update if parsing fails
+      }
+    }
+
+    // Handle uploaded files from multer
+    let newImages = [];
+    if (req.files && req.files.length > 0) {
+      newImages = req.files.map(file => `/uploads/properties/${file.filename}`);
+    }
+
+    // Extract location fields
+    const updateData = {
+      ...req.body
+    };
+
+    // Update images if new ones were uploaded
+    if (newImages.length > 0) {
+      updateData.images = [...(property.images || []), ...newImages];
+    }
+
+    // Update features if provided
+    if (features !== undefined) {
+      updateData.features = features;
+    }
+
+    // Handle empty assignedAgent - remove if empty string
+    if (updateData.assignedAgent === '' || updateData.assignedAgent === null) {
+      delete updateData.assignedAgent;
+    }
+
+    // Map frontend 'sale' value to backend 'sell' for state field
+    if (updateData.state === 'sale') {
+      updateData.state = 'sell';
+    }
+
+    // If location is provided as an object, extract the fields
+    if (locationData && typeof locationData === 'object') {
+      updateData.zone = locationData.zone || updateData.zone || property.zone;
+      updateData.thana = locationData.thana || updateData.thana || property.thana;
+      updateData.area = locationData.area || updateData.area || property.area;
+      updateData.address = locationData.address || updateData.address || property.address;
+      updateData.location = `${updateData.area}, ${updateData.thana}`.trim().replace(/^,\s*|,\s*$/g, '');
+    }
+
     const updatedProperty = await Property.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     );
 

@@ -23,10 +23,17 @@ export const createCustomer = async (req, res) => {
       });
     }
 
-    const customer = await Customer.create({
-      ...req.body,
-      addedBy: req.user._id
-    });
+    console.log('Creating customer with data:', req.body);
+
+    // Clean up empty string fields that should be ObjectId or undefined
+    const customerData = { ...req.body, addedBy: req.user._id };
+    if (customerData.assignedAgent === '') delete customerData.assignedAgent;
+    if (customerData.customerZone === '') delete customerData.customerZone;
+    if (customerData.customerThana === '') delete customerData.customerThana;
+
+    const customer = await Customer.create(customerData);
+
+    console.log('Customer created successfully:', customer._id);
 
     // Notification logic based on role and assignment
     try {
@@ -41,7 +48,7 @@ export const createCustomer = async (req, res) => {
         await notifyCustomerAssigned(customer, customer.assignedAgent);
         
         // High-value lead notification
-        if (customer.budget && customer.budget >= 500000) {
+        if (customer.budget && customer.budget.max && customer.budget.max >= 500000) {
           await notifyHighValueLead(customer, customer.assignedAgent);
         }
       }
@@ -55,10 +62,12 @@ export const createCustomer = async (req, res) => {
       customer
     });
   } catch (error) {
+    console.error('Error creating customer:', error);
     res.status(500).json({
       success: false,
       message: 'Error creating customer',
-      error: error.message
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
@@ -90,11 +99,16 @@ export const getAllCustomers = async (req, res) => {
     const customers = await Customer.find(query)
       .populate('addedBy', 'name email')
       .populate('assignedAgent', 'name email')
-      .populate('interestedProperties', 'name price location')
+      .populate({
+        path: 'interestedProperties',
+        select: 'name title price location zone thana area',
+        options: { strictPopulate: false }
+      })
       .populate('notes.addedBy', 'name')
       .sort(sort)
       .limit(limit * 1)
       .skip((page - 1) * limit)
+      .lean()
       .exec();
 
     const count = await Customer.countDocuments(query);
@@ -107,10 +121,12 @@ export const getAllCustomers = async (req, res) => {
       total: count
     });
   } catch (error) {
+    console.error('Error in getAllCustomers:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching customers',
-      error: error.message
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
@@ -123,8 +139,13 @@ export const getCustomerById = async (req, res) => {
     const customer = await Customer.findById(req.params.id)
       .populate('addedBy', 'name email')
       .populate('assignedAgent', 'name email phone')
-      .populate('interestedProperties', 'name price location images')
-      .populate('notes.addedBy', 'name');
+      .populate({
+        path: 'interestedProperties',
+        select: 'name title price location zone thana area images',
+        options: { strictPopulate: false }
+      })
+      .populate('notes.addedBy', 'name')
+      .lean();
 
     if (!customer) {
       return res.status(404).json({
@@ -148,10 +169,12 @@ export const getCustomerById = async (req, res) => {
       customer
     });
   } catch (error) {
+    console.error('Error in getCustomerById:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching customer',
-      error: error.message
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
@@ -184,9 +207,15 @@ export const updateCustomer = async (req, res) => {
     const oldStatus = customer.leadStatus;
     const newStatus = req.body.leadStatus;
 
+    // Clean up empty string fields that should be ObjectId or undefined
+    const updateData = { ...req.body };
+    if (updateData.assignedAgent === '') delete updateData.assignedAgent;
+    if (updateData.customerZone === '') delete updateData.customerZone;
+    if (updateData.customerThana === '') delete updateData.customerThana;
+
     const updatedCustomer = await Customer.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     ).populate('assignedAgent', 'name email');
 
@@ -505,24 +534,13 @@ export const getDueFollowUps = async (req, res) => {
 
 // @desc    Move customer to different zone/thana/agent
 // @route   PUT /api/customers/:id/move
-// @access  Admin/Super Admin
+// @access  Admin/Super Admin/Agent (with restrictions)
 export const moveCustomer = async (req, res) => {
   try {
     const { zone, thana, agentId } = req.body;
 
-    const updateData = {};
-    if (zone) updateData.customerZone = zone;
-    if (thana) updateData.customerThana = thana;
-    if (agentId) updateData.assignedAgent = agentId;
-
-    const customer = await Customer.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true, runValidators: true }
-    )
-      .populate('addedBy', 'name email')
-      .populate('assignedAgent', 'name email');
-
+    const customer = await Customer.findById(req.params.id);
+    
     if (!customer) {
       return res.status(404).json({
         success: false,
@@ -530,15 +548,149 @@ export const moveCustomer = async (req, res) => {
       });
     }
 
+    // Track the previous agent for movement history
+    const previousAgent = customer.assignedAgent;
+
+    const updateData = {};
+    if (zone) updateData.customerZone = zone;
+    if (thana) updateData.customerThana = thana;
+    if (agentId) {
+      updateData.assignedAgent = agentId;
+      // Track movement history
+      if (previousAgent && previousAgent.toString() !== agentId) {
+        updateData.movedFrom = {
+          agent: previousAgent,
+          movedAt: new Date(),
+          movedBy: req.user._id
+        };
+      }
+    }
+
+    const updatedCustomer = await Customer.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true, runValidators: true }
+    )
+      .populate('addedBy', 'name email')
+      .populate('assignedAgent', 'name email');
+
+    // Notify new agent about customer assignment
+    if (agentId && previousAgent?.toString() !== agentId) {
+      try {
+        await notifyCustomerAssigned(updatedCustomer, agentId);
+      } catch (notifError) {
+        console.error('Notification error:', notifError);
+      }
+    }
+
     res.json({
       success: true,
       message: 'Customer moved successfully',
-      customer
+      customer: updatedCustomer
     });
   } catch (error) {
     res.status(500).json({
       success: false,
       message: 'Error moving customer',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Agent close customer (mark as closed/rejected by agent)
+// @route   PUT /api/customers/:id/agent-close
+// @access  Agent/Admin/Super Admin
+export const agentCloseCustomer = async (req, res) => {
+  try {
+    const { reason } = req.body;
+
+    const customer = await Customer.findById(req.params.id);
+    
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Customer not found'
+      });
+    }
+
+    // Check if agent can close this customer
+    if (req.user.role === 'agent') {
+      const isOwnCustomer = customer.assignedAgent?.toString() === req.user._id.toString() ||
+                            customer.addedBy?.toString() === req.user._id.toString();
+      if (!isOwnCustomer) {
+        return res.status(403).json({
+          success: false,
+          message: 'Not authorized to close this customer'
+        });
+      }
+    }
+
+    const updatedCustomer = await Customer.findByIdAndUpdate(
+      req.params.id,
+      {
+        agentClosed: true,
+        closedBy: req.user._id,
+        closedAt: new Date(),
+        closeReason: reason || 'Closed by agent',
+        status: 'closed'
+      },
+      { new: true, runValidators: true }
+    )
+      .populate('addedBy', 'name email')
+      .populate('assignedAgent', 'name email')
+      .populate('closedBy', 'name email');
+
+    res.json({
+      success: true,
+      message: 'Customer closed successfully',
+      customer: updatedCustomer
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error closing customer',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Reopen a closed customer
+// @route   PUT /api/customers/:id/reopen
+// @access  Admin/Super Admin
+export const reopenCustomer = async (req, res) => {
+  try {
+    const customer = await Customer.findById(req.params.id);
+    
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Customer not found'
+      });
+    }
+
+    const updatedCustomer = await Customer.findByIdAndUpdate(
+      req.params.id,
+      {
+        agentClosed: false,
+        closedBy: null,
+        closedAt: null,
+        closeReason: null,
+        status: 'new'
+      },
+      { new: true, runValidators: true }
+    )
+      .populate('addedBy', 'name email')
+      .populate('assignedAgent', 'name email');
+
+    res.json({
+      success: true,
+      message: 'Customer reopened successfully',
+      customer: updatedCustomer
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error reopening customer',
       error: error.message
     });
   }

@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "sintecproperty-crm",
+    "site": "sintecproperty-crm-15f63",
     "public": "dist",
     "ignore": [
       "firebase.json",

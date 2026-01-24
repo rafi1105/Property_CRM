@@ -113,6 +113,34 @@ const customerSchema = new mongoose.Schema({
   isFollowUpDue: {
     type: Boolean,
     default: false
+  },
+  // Agent Close tracking - customer was closed/rejected by agent
+  agentClosed: {
+    type: Boolean,
+    default: false
+  },
+  closedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  closedAt: {
+    type: Date
+  },
+  closeReason: {
+    type: String,
+    trim: true
+  },
+  // Track customer movement/transfers
+  movedFrom: {
+    agent: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    movedAt: Date,
+    movedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }
   }
 }, {
   timestamps: true

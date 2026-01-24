@@ -1,5 +1,6 @@
 import express from 'express';
 import { body } from 'express-validator';
+import upload from '../config/multer.config.js';
 import {
   createProperty,
   getAllProperties,
@@ -22,7 +23,7 @@ router.get('/:id', getPropertyById);
 router.get('/my/properties', authenticate, agentAndAbove, getMyProperties);
 
 // Admin and above routes (create, update, delete)
-router.post('/', authenticate, adminOnly, [
+router.post('/', authenticate, adminOnly, upload.array('images', 10), [
   body('name').trim().notEmpty().withMessage('Property name is required'),
   body('description').optional().trim(),
   body('price').isNumeric().withMessage('Valid price is required'),
@@ -31,7 +32,7 @@ router.post('/', authenticate, adminOnly, [
   body('squareFeet').isNumeric().withMessage('Valid square feet is required')
 ], createProperty);
 
-router.put('/:id', authenticate, adminOnly, updateProperty);
+router.put('/:id', authenticate, adminOnly, upload.array('images', 10), updateProperty);
 
 // Super Admin only routes
 router.delete('/:id', authenticate, superAdminOnly, deleteProperty);

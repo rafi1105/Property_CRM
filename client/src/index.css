@@ -17,7 +17,7 @@
   --color-secondary-dark: #4c1d95; /* Purple 900 */
   --color-secondary-light: #7c3aed; /* Purple 600 */
   
-  /* Accent Colors - Vibrant Purple/Pink */
+  /* Accent Colors - Vibrant Purple/indigo */
   --color-accent: #d946ef;         /* Fuchsia 500 */
   --color-accent-dark: #c026d3;    /* Fuchsia 600 */
   --color-accent-light: #e879f9;   /* Fuchsia 400 */
@@ -369,7 +369,7 @@ body {
   background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
 }
 
-.gradient-purple-pink {
+.gradient-purple-indigo {
   background: linear-gradient(135deg, #7c3aed 0%, #d946ef 100%);
 }
 

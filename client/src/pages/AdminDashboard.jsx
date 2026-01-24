@@ -45,6 +45,7 @@ const AdminDashboard = () => {
   const [visitStats, setVisitStats] = useState({ today: 0, monthly: 0, total: 0 });
   const [dueFollowUpsCount, setDueFollowUpsCount] = useState(0);
   const [dueFollowUps, setDueFollowUps] = useState([]);
+  const [ownCustomersCount, setOwnCustomersCount] = useState(0);
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
@@ -69,6 +70,7 @@ const AdminDashboard = () => {
     fetchDashboardData();
     fetchVisitData();
     fetchFollowUps();
+    fetchOwnCustomers();
   }, [user]);
 
   const fetchDashboardData = async () => {
@@ -156,6 +158,16 @@ const AdminDashboard = () => {
       setDueFollowUpsCount(countRes.data.count || 0);
     } catch (error) {
       console.error('Error fetching follow-ups count:', error);
+    }
+  };
+
+  const fetchOwnCustomers = async () => {
+    try {
+      const response = await customerAPI.getMyCustomers();
+      const customers = response.data?.customers || response.data || [];
+      setOwnCustomersCount(Array.isArray(customers) ? customers.length : 0);
+    } catch (error) {
+      console.error('Error fetching own customers count:', error);
     }
   };
 
@@ -281,7 +293,7 @@ const AdminDashboard = () => {
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         {/* Total Properties */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-4">
@@ -310,6 +322,23 @@ const AdminDashboard = () => {
           </div>
           <h3 className="text-3xl font-bold text-gray-900">{stats?.totalCustomers || 0}</h3>
           <p className="text-gray-500 text-sm mt-1">Total Customers</p>
+        </div>
+
+        {/* Own Customers (My Customers) */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+              <UsersIcon className="w-6 h-6 text-emerald-600" />
+            </div>
+            <Link
+              to="/customers"
+              className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
+            >
+              View →
+            </Link>
+          </div>
+          <h3 className="text-3xl font-bold text-gray-900">{ownCustomersCount}</h3>
+          <p className="text-gray-500 text-sm mt-1">My Customers</p>
         </div>
 
         {/* Active Tasks */}
@@ -460,7 +489,7 @@ const AdminDashboard = () => {
             </select>
           </div>
           <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={288}>
               <AreaChart data={monthlyData}>
                 <defs>
                   <linearGradient id="colorProperties" x1="0" y1="0" x2="0" y2="1">
@@ -494,7 +523,7 @@ const AdminDashboard = () => {
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
           <h3 className="text-lg font-semibold text-gray-900 mb-6">Property Types</h3>
           <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={192}>
               <PieChart>
                 <Pie
                   data={propertyTypeData}
@@ -629,7 +658,7 @@ const AdminDashboard = () => {
             {users.slice(0, 6).map((u) => (
               <div key={u._id} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center">
                     <span className="text-white font-semibold">
                       {u.name?.charAt(0)?.toUpperCase()}
                     </span>

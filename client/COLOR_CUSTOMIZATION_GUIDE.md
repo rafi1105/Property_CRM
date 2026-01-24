@@ -93,7 +93,7 @@ Used for property status badges:
 }
 ```
 
-### Example 2: Elegant Purple & Pink
+### Example 2: Elegant Purple & indigo
 
 ```css
 :root {

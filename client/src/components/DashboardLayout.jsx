@@ -49,7 +49,7 @@ const DashboardLayout = ({ children, title, subtitle }) => {
 
               {/* User Avatar */}
               <Link to="/dashboard/profile" className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                <div className="w-9 h-9 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center">
                   <span className="text-white text-sm font-semibold">
                     {user?.name?.charAt(0)?.toUpperCase() || 'U'}
                   </span>

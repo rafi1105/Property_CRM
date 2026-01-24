@@ -79,7 +79,9 @@ export const customerAPI = {
   delete: (id) => api.delete(`/customers/${id}`),
   assignAgent: (id, agentId) => api.patch(`/customers/${id}/assign-agent`, { agentId }),
   addNote: (id, note) => api.post(`/customers/${id}/notes`, { note }),
-  moveCustomer: (id, data) => api.put(`/customers/${id}/move`, data)
+  moveCustomer: (id, data) => api.put(`/customers/${id}/move`, data),
+  agentCloseCustomer: (id, reason) => api.put(`/customers/${id}/agent-close`, { reason }),
+  reopenCustomer: (id) => api.put(`/customers/${id}/reopen`)
 };
 
 // Task APIs

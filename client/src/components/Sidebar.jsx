@@ -134,6 +134,7 @@ const Sidebar = () => {
           <NavLink
             key={item.path}
             to={item.path}
+            end={item.path === '/dashboard'}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group ${
                 isActive
@@ -170,7 +171,7 @@ const Sidebar = () => {
             } ${collapsed ? 'justify-center' : ''}`
           }
         >
-          <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
+          <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-800 rounded-full flex items-center justify-center flex-shrink-0">
             <span className="text-white text-sm font-semibold">
               {user?.name?.charAt(0)?.toUpperCase() || 'U'}
             </span>
@@ -189,7 +190,7 @@ const Sidebar = () => {
             collapsed ? 'justify-center' : ''
           }`}
         >
-          <ArrowRightOnRectangleIcon className="w-5 h-5 flex-shrink-0" />
+          <ArrowRightOnRectangleIcon className="w-5 h-5 shrink-0" />
           {!collapsed && <span className="font-medium">Logout</span>}
         </button>
       </div>
