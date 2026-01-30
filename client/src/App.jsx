@@ -8,7 +8,6 @@ import CustomerDetails from './pages/CustomerDetails';
 import ClosedDeals from './pages/ClosedDeals';
 import Reports from './pages/Reports';
 import UserManagement from './pages/UserManagement';
-import AgentManagement from './pages/AgentManagement';
 import TaskManager from './pages/TaskManager';
 import NotificationsPage from './pages/NotificationsPage';
 import Profile from './pages/Profile';
@@ -26,19 +25,9 @@ function App() {
 
   return (
     <Routes>
-      {/* Default route - redirect to admin login or dashboard */}
+      {/* Default route - shows admin login or redirects to dashboard */}
       <Route 
         path="/" 
-        element={
-          isAuthenticated ? 
-            <Navigate to={getDefaultRedirect()} replace /> : 
-            <Navigate to="/admin-login" replace />
-        } 
-      />
-      
-      {/* Admin Login - redirect to dashboard if already authenticated */}
-      <Route 
-        path="/admin-login" 
         element={isAuthenticated ? <Navigate to={getDefaultRedirect()} replace /> : <AdminLogin />} 
       />
 
@@ -76,8 +65,8 @@ function App() {
         } 
       />
 
-      {/* Property Management Routes */}
-      <Route 
+      {/* Property Management Routes - Commented for future work */}
+      {/* <Route 
         path="/dashboard/properties" 
         element={
           <ProtectedRoute allowedRoles={['super_admin', 'admin']}>
@@ -92,7 +81,7 @@ function App() {
             <PropertyManagement />
           </ProtectedRoute>
         } 
-      />
+      /> */}
 
       {/* Task Management Routes */}
       <Route 
@@ -142,16 +131,6 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={['super_admin', 'admin', 'agent']}>
             <ClosedDeals />
-          </ProtectedRoute>
-        } 
-      />
-
-      {/* Agent Management Routes */}
-      <Route 
-        path="/dashboard/agents" 
-        element={
-          <ProtectedRoute allowedRoles={['super_admin', 'admin']}>
-            <AgentManagement />
           </ProtectedRoute>
         } 
       />

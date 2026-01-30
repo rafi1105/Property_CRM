@@ -19,6 +19,9 @@ import {
   HomeModernIcon,
   CalendarDaysIcon,
   ChatBubbleLeftIcon,
+  EnvelopeIcon,
+  MapPinIcon,
+  TagIcon,
 } from '@heroicons/react/24/outline';
 
 const ClosedDeals = () => {
@@ -71,9 +74,9 @@ const ClosedDeals = () => {
     }
   };
 
-  // Navigate to Edit Customer page
+  // Navigate to Customer Details page
   const handleEditCustomer = (customerId) => {
-    navigate(`/dashboard/customers?edit=${customerId}`);
+    navigate(`/dashboard/customers/${customerId}`);
   };
 
   // Filter logic
@@ -274,12 +277,55 @@ const ClosedDeals = () => {
                           <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center">
                             <span className="text-white font-bold text-2xl">{selectedDeal.name?.charAt(0)}</span>
                           </div>
-                          <div>
+                          <div className="flex-1">
                             <h3 className="text-xl font-bold text-gray-900">{selectedDeal.name}</h3>
-                            <div className="flex items-center gap-2 text-gray-600 mt-1">
-                              <PhoneIcon className="w-4 h-4" />
-                              <span>{selectedDeal.phone}</span>
+                            <div className="flex flex-wrap items-center gap-3 mt-2">
+                              <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
+                                {selectedDeal.status || 'closed'}
+                              </span>
+                              <span className={`px-3 py-1 rounded-full text-sm font-medium border ${
+                                selectedDeal.priority === 'high' ? 'bg-red-100 text-red-700 border-red-200' :
+                                selectedDeal.priority === 'medium' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' :
+                                'bg-green-100 text-green-700 border-green-200'
+                              }`}>
+                                {selectedDeal.priority || 'medium'} priority
+                              </span>
                             </div>
+                          </div>
+                        </div>
+
+                        {/* Contact Information */}
+                        <div className="mb-6 bg-gray-50 rounded-xl p-4">
+                          <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                            <UserCircleIcon className="w-5 h-5 text-purple-600" />
+                            Contact Information
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100">
+                              <PhoneIcon className="w-5 h-5 text-gray-400" />
+                              <div>
+                                <p className="text-xs text-gray-500">Phone</p>
+                                <p className="text-gray-900 font-medium">{selectedDeal.phone}</p>
+                              </div>
+                            </div>
+                            {selectedDeal.email && (
+                              <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100">
+                                <EnvelopeIcon className="w-5 h-5 text-gray-400" />
+                                <div>
+                                  <p className="text-xs text-gray-500">Email</p>
+                                  <p className="text-gray-900 font-medium truncate">{selectedDeal.email}</p>
+                                </div>
+                              </div>
+                            )}
+                            {selectedDeal.address && (
+                              <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100 md:col-span-2">
+                                <MapPinIcon className="w-5 h-5 text-gray-400" />
+                                <div>
+                                  <p className="text-xs text-gray-500">Address</p>
+                                  <p className="text-gray-900 font-medium">{selectedDeal.address}</p>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -296,7 +342,7 @@ const ClosedDeals = () => {
                             </div>
                             <div>
                               <span className="text-xs font-medium text-gray-500">Closed By</span>
-                              <p className="text-gray-900">{selectedDeal.closedBy?.name || 'Unknown'}</p>
+                              <p className="text-gray-900">{selectedDeal.closedBy?.name || selectedDeal.addedBy?.name || 'System'}</p>
                             </div>
                             <div>
                               <span className="text-xs font-medium text-gray-500">Closed Date</span>
@@ -304,34 +350,51 @@ const ClosedDeals = () => {
                             </div>
                             <div>
                               <span className="text-xs font-medium text-gray-500">Assigned Agent</span>
-                              <p className="text-gray-900">{selectedDeal.assignedAgent?.name || 'Unassigned'}</p>
+                              <p className="text-gray-900">{selectedDeal.assignedAgent?.name || selectedDeal.addedBy?.name || 'N/A'}</p>
                             </div>
                           </div>
                         </div>
 
                         {/* Budget & Preferences */}
                         <div className="mb-6">
-                          <h4 className="font-medium text-gray-900 mb-3">Requirements</h4>
+                          <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                            <TagIcon className="w-5 h-5 text-purple-600" />
+                            Requirements & Preferences
+                          </h4>
                           <div className="grid grid-cols-2 gap-4">
-                            <div className="p-3 bg-gray-50 rounded-xl">
-                              <span className="text-xs font-medium text-gray-500">Budget Range</span>
+                            <div className="p-3 bg-purple-50 rounded-xl">
+                              <span className="text-xs font-medium text-purple-600">Budget Range</span>
                               <p className="text-gray-900 font-semibold">
                                 ৳{selectedDeal.budget?.min?.toLocaleString() || 0} - ৳{selectedDeal.budget?.max?.toLocaleString() || 0}
                               </p>
                             </div>
-                            <div className="p-3 bg-gray-50 rounded-xl">
-                              <span className="text-xs font-medium text-gray-500">Source</span>
+                            <div className="p-3 bg-indigo-50 rounded-xl">
+                              <span className="text-xs font-medium text-indigo-600">Source</span>
                               <p className="text-gray-900 font-semibold capitalize">{selectedDeal.source || 'N/A'}</p>
                             </div>
+                            {(selectedDeal.customerZone || selectedDeal.customerThana) && (
+                              <div className="p-3 bg-gray-50 rounded-xl col-span-2">
+                                <span className="text-xs font-medium text-gray-500">Customer Zone/Thana</span>
+                                <p className="text-gray-900 font-medium">
+                                  {selectedDeal.customerThana}{selectedDeal.customerZone ? `, ${selectedDeal.customerZone}` : ''}
+                                </p>
+                              </div>
+                            )}
                           </div>
                           {selectedDeal.preferredLocation?.length > 0 && (
                             <div className="mt-3 p-3 bg-gray-50 rounded-xl">
                               <span className="text-xs font-medium text-gray-500">Preferred Locations</span>
-                              <p className="text-gray-900">{selectedDeal.preferredLocation.join(', ')}</p>
+                              <div className="flex flex-wrap gap-2 mt-1">
+                                {(Array.isArray(selectedDeal.preferredLocation) ? selectedDeal.preferredLocation : [selectedDeal.preferredLocation]).map((loc, idx) => (
+                                  <span key={idx} className="px-2 py-1 bg-white border border-gray-200 rounded-full text-sm text-gray-700">
+                                    {loc}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
                           )}
                           {selectedDeal.propertyType?.length > 0 && (
-                            <div className="mt-3">
+                            <div className="mt-3 p-3 bg-gray-50 rounded-xl">
                               <span className="text-xs font-medium text-gray-500">Property Types</span>
                               <div className="flex flex-wrap gap-2 mt-1">
                                 {selectedDeal.propertyType.map(type => (
@@ -344,8 +407,19 @@ const ClosedDeals = () => {
                           )}
                         </div>
 
-                        {/* Interested Properties */}
-                        {selectedDeal.interestedProperties?.length > 0 && (
+                        {/* Interested Properties - Text */}
+                        {selectedDeal.interestedProperties && typeof selectedDeal.interestedProperties === 'string' && (
+                          <div className="mb-6 p-4 bg-gray-50 rounded-xl">
+                            <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                              <HomeModernIcon className="w-5 h-5 text-purple-600" />
+                              Interested Properties
+                            </h4>
+                            <p className="text-gray-700 whitespace-pre-wrap">{selectedDeal.interestedProperties}</p>
+                          </div>
+                        )}
+
+                        {/* Interested Properties - Array */}
+                        {selectedDeal.interestedProperties?.length > 0 && Array.isArray(selectedDeal.interestedProperties) && (
                           <div className="mb-6">
                             <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
                               <HomeModernIcon className="w-5 h-5 text-purple-600" />
@@ -355,7 +429,14 @@ const ClosedDeals = () => {
                               {selectedDeal.interestedProperties.map(property => (
                                 <div key={property._id} className="border border-gray-200 rounded-xl p-3 flex justify-between items-center bg-gray-50">
                                   <div>
-                                    <p className="font-medium text-gray-900">{property.title || property.name}</p>
+                                    <div className="flex items-center gap-2">
+                                      <p className="font-medium text-gray-900">{property.title || property.name}</p>
+                                      {property.propertyCode && (
+                                        <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded">
+                                          {property.propertyCode}
+                                        </span>
+                                      )}
+                                    </div>
                                     <p className="text-sm text-gray-600">{property.location}</p>
                                   </div>
                                   <p className="text-lg font-semibold text-purple-600">
@@ -367,13 +448,19 @@ const ClosedDeals = () => {
                           </div>
                         )}
 
-                        {/* Notes/Address */}
-                        {(selectedDeal.address || selectedDeal.requirements) && (
-                          <div className="mb-6">
-                            <h4 className="font-medium text-gray-900 mb-2">Notes</h4>
-                            <p className="text-gray-600 bg-gray-50 p-3 rounded-xl whitespace-pre-wrap">
-                              {selectedDeal.requirements || selectedDeal.address}
-                            </p>
+                        {/* Additional Requirements */}
+                        {selectedDeal.requirements && (
+                          <div className="mb-6 p-4 bg-gray-50 rounded-xl">
+                            <h4 className="font-medium text-gray-900 mb-2">Additional Requirements</h4>
+                            <p className="text-gray-700 whitespace-pre-wrap">{selectedDeal.requirements}</p>
+                          </div>
+                        )}
+
+                        {/* Referred By */}
+                        {selectedDeal.referredBy && (
+                          <div className="mb-6 p-4 bg-green-50 rounded-xl">
+                            <span className="text-xs font-medium text-green-600">Referred By</span>
+                            <p className="text-gray-900 font-medium">{selectedDeal.referredBy}</p>
                           </div>
                         )}
 
@@ -404,12 +491,27 @@ const ClosedDeals = () => {
                         )}
 
                         {/* Timeline */}
-                        <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                          <div>
-                            <span className="font-medium">Created:</span> {formatDate(selectedDeal.createdAt)}
-                          </div>
-                          <div>
-                            <span className="font-medium">Last Updated:</span> {formatDate(selectedDeal.updatedAt)}
+                        <div className="bg-gray-50 rounded-xl p-4">
+                          <h4 className="font-medium text-gray-900 mb-3">Timeline</h4>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500">Created:</span>
+                              <p className="text-gray-900 font-medium">{formatDate(selectedDeal.createdAt)}</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Last Updated:</span>
+                              <p className="text-gray-900 font-medium">{formatDate(selectedDeal.updatedAt)}</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Added By:</span>
+                              <p className="text-gray-900 font-medium">{selectedDeal.addedBy?.name || 'System'}</p>
+                            </div>
+                            {selectedDeal.closedAt && (
+                              <div>
+                                <span className="text-gray-500">Closed At:</span>
+                                <p className="text-gray-900 font-medium">{formatDate(selectedDeal.closedAt)}</p>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

@@ -46,6 +46,7 @@ const AdminDashboard = () => {
   const [dueFollowUpsCount, setDueFollowUpsCount] = useState(0);
   const [dueFollowUps, setDueFollowUps] = useState([]);
   const [ownCustomersCount, setOwnCustomersCount] = useState(0);
+  const [customers, setCustomers] = useState([]);
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
@@ -56,7 +57,7 @@ const AdminDashboard = () => {
   });
   const [visitForm, setVisitForm] = useState({
     customerId: '',
-    propertyId: '',
+    propertyCode: '',
     visitDate: new Date().toISOString().split('T')[0],
     status: 'completed',
     notes: '',
@@ -71,6 +72,7 @@ const AdminDashboard = () => {
     fetchVisitData();
     fetchFollowUps();
     fetchOwnCustomers();
+    fetchCustomers();
   }, [user]);
 
   const fetchDashboardData = async () => {
@@ -171,6 +173,18 @@ const AdminDashboard = () => {
     }
   };
 
+  const fetchCustomers = async () => {
+    try {
+      // Use appropriate API based on role
+      const response = user?.role === 'agent'
+        ? await customerAPI.getMyCustomers()
+        : await customerAPI.getAll({ limit: 200 });
+      setCustomers(response.data?.customers || response.data || []);
+    } catch (error) {
+      console.error('Error fetching customers for visit form:', error);
+    }
+  };
+
   const loadDueFollowUps = async () => {
     try {
       const response = await customerAPI.getDueFollowUps();
@@ -184,7 +198,7 @@ const AdminDashboard = () => {
   const resetVisitForm = () => {
     setVisitForm({
       customerId: '',
-      propertyId: '',
+      propertyCode: '',
       visitDate: new Date().toISOString().split('T')[0],
       status: 'completed',
       notes: '',
@@ -529,8 +543,8 @@ const AdminDashboard = () => {
               <option>Last year</option>
             </select>
           </div>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={288}>
+          <div className="h-72" style={{ minHeight: '288px', width: '100%' }}>
+            <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={monthlyData}>
                 <defs>
                   <linearGradient id="colorProperties" x1="0" y1="0" x2="0" y2="1">
@@ -563,8 +577,8 @@ const AdminDashboard = () => {
         {/* Property Types Pie */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
           <h3 className="text-lg font-semibold text-gray-900 mb-6">Property Types</h3>
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={192}>
+          <div className="h-48" style={{ minHeight: '192px', width: '100%' }}>
+            <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={propertyTypeData}
@@ -859,25 +873,32 @@ const AdminDashboard = () => {
                   <form onSubmit={handleAddVisit} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Customer ID *</label>
-                        <input
-                          type="text"
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Customer *</label>
+                        <select
                           required
                           value={visitForm.customerId}
                           onChange={(e) => setVisitForm({...visitForm, customerId: e.target.value})}
                           className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
-                          placeholder="Enter customer ID"
-                        />
+                        >
+                          <option value="">Select Customer</option>
+                          {customers
+                            .filter(customer => customer.assignedAgent)
+                            .map(customer => (
+                            <option key={customer._id} value={customer._id}>
+                              {customer.name} - {customer.phone} (Agent: {customer.assignedAgent?.name || 'Unknown'})
+                            </option>
+                          ))}
+                        </select>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Property ID (Optional)</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Property Code (Optional)</label>
                         <input
                           type="text"
-                          value={visitForm.propertyId}
-                          onChange={(e) => setVisitForm({...visitForm, propertyId: e.target.value})}
+                          value={visitForm.propertyCode}
+                          onChange={(e) => setVisitForm({...visitForm, propertyCode: e.target.value})}
                           className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
-                          placeholder="Enter property ID"
+                          placeholder="Enter property code"
                         />
                       </div>
 

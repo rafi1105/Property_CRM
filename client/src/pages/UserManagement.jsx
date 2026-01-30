@@ -4,14 +4,20 @@ import { toast } from 'react-toastify';
 import DashboardLayout from '../components/DashboardLayout';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
+import { locationData } from '../data/locations';
 import {
   UserGroupIcon,
   PlusIcon,
   XMarkIcon,
-  PencilIcon,
-  TrashIcon,
   MagnifyingGlassIcon,
   ShieldCheckIcon,
+  TableCellsIcon,
+  Squares2X2Icon,
+  PhoneIcon,
+  EnvelopeIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  MapPinIcon,
 } from '@heroicons/react/24/outline';
 
 const UserManagement = () => {
@@ -23,6 +29,9 @@ const UserManagement = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
+  const [viewMode, setViewMode] = useState('card');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
 
   const [formData, setFormData] = useState({
     name: '',
@@ -30,12 +39,18 @@ const UserManagement = () => {
     password: '',
     role: 'admin',
     phone: '',
-    isActive: true
+    isActive: true,
+    assignedZone: '',
+    assignedThana: ''
   });
 
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterRole]);
 
   const fetchUsers = async () => {
     try {
@@ -130,7 +145,7 @@ const UserManagement = () => {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', email: '', password: '', role: 'admin', phone: '', isActive: true });
+    setFormData({ name: '', email: '', password: '', role: 'admin', phone: '', isActive: true, assignedZone: '', assignedThana: '' });
     setSelectedUser(null);
   };
 
@@ -142,7 +157,9 @@ const UserManagement = () => {
       password: '',
       role: u.role || 'admin',
       phone: u.phone || '',
-      isActive: u.isActive !== false
+      isActive: u.isActive !== false,
+      assignedZone: u.assignedZone || '',
+      assignedThana: u.assignedThana || ''
     });
     setShowEditModal(true);
   };
@@ -153,6 +170,13 @@ const UserManagement = () => {
     const matchesRole = filterRole === 'all' || u.role === filterRole;
     return matchesSearch && matchesRole;
   });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   const roleColors = {
     super_admin: 'bg-purple-100 text-purple-700',
@@ -198,6 +222,24 @@ const UserManagement = () => {
             <option value="admin">Admin</option>
             <option value="agent">Agent</option>
           </select>
+
+          {/* View Toggle */}
+          <div className="flex items-center bg-white border border-gray-200 rounded-xl p-1">
+            <button
+              onClick={() => setViewMode('card')}
+              className={`p-2 rounded-lg transition-colors ${viewMode === 'card' ? 'bg-purple-100 text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
+              title="Card View"
+            >
+              <Squares2X2Icon className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              className={`p-2 rounded-lg transition-colors ${viewMode === 'table' ? 'bg-purple-100 text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
+              title="Table View"
+            >
+              <TableCellsIcon className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <button
@@ -209,14 +251,35 @@ const UserManagement = () => {
         </button>
       </div>
 
-      {/* Users Grid */}
+      {/* Stats Summary */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white rounded-xl p-4 border border-gray-100">
+          <p className="text-2xl font-bold text-gray-900">{users.length}</p>
+          <p className="text-sm text-gray-500">Total Users</p>
+        </div>
+        <div className="bg-white rounded-xl p-4 border border-gray-100">
+          <p className="text-2xl font-bold text-purple-600">{users.filter(u => u.role === 'super_admin').length}</p>
+          <p className="text-sm text-gray-500">Super Admins</p>
+        </div>
+        <div className="bg-white rounded-xl p-4 border border-gray-100">
+          <p className="text-2xl font-bold text-blue-600">{users.filter(u => u.role === 'admin').length}</p>
+          <p className="text-sm text-gray-500">Admins</p>
+        </div>
+        <div className="bg-white rounded-xl p-4 border border-gray-100">
+          <p className="text-2xl font-bold text-green-600">{users.filter(u => u.role === 'agent').length}</p>
+          <p className="text-sm text-gray-500">Agents</p>
+        </div>
+      </div>
+
+      {/* Users List */}
       {loading ? (
         <div className="flex items-center justify-center h-64">
           <div className="w-10 h-10 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredUsers.map((u) => (
+      ) : viewMode === 'card' ? (
+        /* Card View */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {paginatedUsers.map((u) => (
             <div key={u._id} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
               <div className="flex items-center gap-4 mb-4">
                 <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0">
@@ -239,7 +302,23 @@ const UserManagement = () => {
               </div>
 
               {u.phone && (
-                <p className="text-sm text-gray-500 mb-4">📞 {u.phone}</p>
+                <div className={`flex items-center gap-2 text-sm text-gray-500 ${u.role === 'agent' && (u.assignedZone || u.assignedThana) ? 'mb-2' : 'mb-4'}`}>
+                  <PhoneIcon className="w-4 h-4" />
+                  {u.phone}
+                </div>
+              )}
+
+              {u.role === 'agent' && (u.assignedZone || u.assignedThana) && (
+                <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
+                  <MapPinIcon className="w-4 h-4" />
+                  <span className="truncate">
+                    {u.assignedThana ? `${u.assignedThana}${u.assignedZone ? `, ${u.assignedZone}` : ''}` : u.assignedZone}
+                  </span>
+                </div>
+              )}
+
+              {!u.phone && !(u.role === 'agent' && (u.assignedZone || u.assignedThana)) && (
+                <div className="mb-4"></div>
               )}
 
               <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
@@ -261,12 +340,144 @@ const UserManagement = () => {
             </div>
           ))}
 
-          {filteredUsers.length === 0 && (
+          {paginatedUsers.length === 0 && (
             <div className="col-span-full text-center py-12">
               <UserGroupIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900">No users found</h3>
             </div>
           )}
+        </div>
+      ) : (
+        /* Table View */
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gradient-to-r from-purple-800 to-indigo-600">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">User</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Email</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Phone</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Role</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Location</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-100">
+                {paginatedUsers.map((u, index) => (
+                  <tr key={u._id} className={`hover:bg-purple-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0">
+                          <span className="text-white font-semibold">{u.name?.charAt(0)?.toUpperCase()}</span>
+                        </div>
+                        <span className="font-medium text-gray-900">{u.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <EnvelopeIcon className="w-4 h-4 text-gray-400" />
+                        {u.email}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-sm text-gray-600">{u.phone || '-'}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${roleColors[u.role] || roleColors.admin}`}>
+                        {u.role?.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {u.role === 'agent' && (u.assignedZone || u.assignedThana) ? (
+                        <div className="text-sm">
+                          <p className="text-gray-900 font-medium">{u.assignedThana || '-'}</p>
+                          <p className="text-xs text-gray-500 truncate max-w-[150px]">{u.assignedZone || '-'}</p>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`flex items-center gap-1 text-xs ${u.isActive !== false ? 'text-green-600' : 'text-gray-400'}`}>
+                        <span className={`w-2 h-2 rounded-full ${u.isActive !== false ? 'bg-green-500' : 'bg-gray-300'}`}></span>
+                        {u.isActive !== false ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => openEditModal(u)}
+                          className="px-3 py-1 text-xs font-medium text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                        >
+                          Edit
+                        </button>
+                        {u.role !== 'super_admin' && (
+                          <button
+                            onClick={() => handleDelete(u._id)}
+                            className="px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+          <p className="text-sm text-gray-600">
+            Page <span className="font-semibold">{currentPage}</span> of <span className="font-semibold">{totalPages}</span>
+            {' '}• Showing {paginatedUsers.length} of {filteredUsers.length} users
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronLeftIcon className="w-5 h-5 text-gray-600" />
+            </button>
+            {[...Array(Math.min(5, totalPages))].map((_, i) => {
+              let pageNum;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`w-10 h-10 rounded-lg font-medium transition-colors ${
+                    currentPage === pageNum
+                      ? 'bg-purple-600 text-white'
+                      : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronRightIcon className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -343,6 +554,41 @@ const UserManagement = () => {
                         className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
                       />
                     </div>
+
+                    {/* Zone and Thana fields for agents */}
+                    {formData.role === 'agent' && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Assigned Zone</label>
+                          <select
+                            value={formData.assignedZone}
+                            onChange={(e) => setFormData({...formData, assignedZone: e.target.value, assignedThana: ''})}
+                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                          >
+                            <option value="">Select Zone</option>
+                            {Object.keys(locationData).map(zone => (
+                              <option key={zone} value={zone}>{zone}</option>
+                            ))}
+                          </select>
+                        </div>
+                        {formData.assignedZone && locationData[formData.assignedZone] && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Assigned Thana</label>
+                            <select
+                              value={formData.assignedThana}
+                              onChange={(e) => setFormData({...formData, assignedThana: e.target.value})}
+                              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                            >
+                              <option value="">Select Thana</option>
+                              {Object.keys(locationData[formData.assignedZone]).map(thana => (
+                                <option key={thana} value={thana}>{thana}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                      </>
+                    )}
+
                     <div className="flex items-center gap-2">
                       <input
                         type="checkbox"

@@ -46,13 +46,14 @@ const Sidebar = () => {
       iconSolid: HomeIconSolid,
       roles: ['super_admin', 'admin', 'agent'],
     },
-    {
-      name: 'Properties',
-      path: '/dashboard/properties',
-      icon: BuildingOfficeIcon,
-      iconSolid: BuildingOfficeIconSolid,
-      roles: ['super_admin', 'admin', 'agent'],
-    },
+    // Properties - Commented for future work
+    // {
+    //   name: 'Properties',
+    //   path: '/dashboard/properties',
+    //   icon: BuildingOfficeIcon,
+    //   iconSolid: BuildingOfficeIconSolid,
+    //   roles: ['super_admin', 'admin', 'agent'],
+    // },
     {
       name: 'Customers',
       path: '/dashboard/customers',
@@ -73,13 +74,6 @@ const Sidebar = () => {
       icon: ClipboardDocumentListIcon,
       iconSolid: ClipboardDocumentListIconSolid,
       roles: ['super_admin', 'admin', 'agent'],
-    },
-    {
-      name: 'Agents',
-      path: '/dashboard/agents',
-      icon: UserGroupIcon,
-      iconSolid: UserGroupIconSolid,
-      roles: ['super_admin', 'admin'],
     },
     {
       name: 'Users',

@@ -45,10 +45,13 @@ const TaskManager = () => {
 
   useEffect(() => {
     fetchTasks();
-    fetchAgents();
+    // Only fetch agents if user is not an agent (agents can't access agent list)
+    if (user?.role !== 'agent') {
+      fetchAgents();
+    }
     fetchCustomers();
     fetchProperties();
-  }, [activeFilter]);
+  }, [activeFilter, user]);
 
   const fetchTasks = async () => {
     try {
@@ -74,7 +77,10 @@ const TaskManager = () => {
 
   const fetchCustomers = async () => {
     try {
-      const response = await customerAPI.getAll({ limit: 100 });
+      // Use appropriate API endpoint based on user role
+      const response = user?.role === 'agent'
+        ? await customerAPI.getMyCustomers()
+        : await customerAPI.getAll({ limit: 100 });
       setCustomers(response.data?.customers || response.data || []);
     } catch (error) {
       console.error('Error fetching customers:', error);
@@ -344,7 +350,8 @@ const TaskManager = () => {
                   <select
                     value={task.status}
                     onChange={(e) => handleStatusChange(task._id, e.target.value)}
-                    className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    style={{ color: '#111827' }}
                   >
                     <option value="pending">Pending</option>
                     <option value="in_progress">In Progress</option>

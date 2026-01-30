@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { customerAPI, agentAPI, propertyAPI, authAPI } from '../utils/api';
 import { toast } from 'react-toastify';
@@ -33,9 +33,37 @@ import {
   ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 
+// Helper function to extract note text properly
+const getNoteText = (noteObj) => {
+  if (!noteObj) return '';
+  
+  // Get the note field from the note object
+  const noteField = noteObj.note;
+  
+  // If noteField is a string, return it directly
+  if (typeof noteField === 'string') return noteField;
+  
+  // If noteField is an object (due to double-wrapping bug)
+  if (noteField && typeof noteField === 'object') {
+    // Check for note.note.note (triple nested due to bug)
+    if (noteField.note && typeof noteField.note === 'string') return noteField.note;
+    // Check for text or content properties
+    if (noteField.text && typeof noteField.text === 'string') return noteField.text;
+    if (noteField.content && typeof noteField.content === 'string') return noteField.content;
+  }
+  
+  // Fallback: check other common properties on the main object
+  if (noteObj.text && typeof noteObj.text === 'string') return noteObj.text;
+  if (noteObj.content && typeof noteObj.content === 'string') return noteObj.content;
+  
+  // Last resort
+  return '';
+};
+
 const CustomerManagement = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [customers, setCustomers] = useState([]);
   const [properties, setProperties] = useState([]);
   const [agents, setAgents] = useState([]);
@@ -81,6 +109,7 @@ const CustomerManagement = () => {
     preferredLocation: '',
     propertyType: [],
     interestedProperties: '',
+    interestedPropertyCode: '',
     assignedAgent: '',
     referredBy: '',
     customerZone: '',
@@ -98,6 +127,18 @@ const CustomerManagement = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, filterPriority, filterStatus, filterAgent, filterZone, filterThana, customerScope]);
+
+  // Handle edit query parameter from CustomerDetails page
+  useEffect(() => {
+    const editCustomerId = searchParams.get('edit');
+    if (editCustomerId && customers.length > 0) {
+      const customerToEdit = customers.find(c => c._id === editCustomerId);
+      if (customerToEdit) {
+        openEditModal(customerToEdit);
+        setSearchParams({}); // Clear the query param after opening modal
+      }
+    }
+  }, [searchParams, customers]);
 
   const fetchCustomers = async () => {
     try {
@@ -370,6 +411,7 @@ const CustomerManagement = () => {
       preferredLocation: '',
       propertyType: [],
       interestedProperties: '',
+      interestedPropertyCode: '',
       assignedAgent: '',
       referredBy: '',
       customerZone: '',
@@ -397,6 +439,7 @@ const CustomerManagement = () => {
         : '',
       propertyType: customer.propertyType || [],
       interestedProperties: customer.interestedProperties || '',
+      interestedPropertyCode: customer.interestedPropertyCode || '',
       assignedAgent: customer.assignedAgent?._id || customer.assignedAgent || '',
       referredBy: customer.referredBy || '',
       customerZone: customer.customerZone || '',
@@ -459,21 +502,23 @@ const CustomerManagement = () => {
             </button>
           </div>
 
-          {/* Customer Scope Toggle (Own/Foreign) */}
-          <div className="flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <button
-              onClick={() => { setCustomerScope('own'); fetchCustomers(); }}
-              className={`px-4 py-2.5 text-sm font-medium transition-colors ${customerScope === 'own' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
-            >
-              My Customers
-            </button>
-            <button
-              onClick={() => { setCustomerScope('foreign'); fetchCustomers(); }}
-              className={`px-4 py-2.5 text-sm font-medium transition-colors ${customerScope === 'foreign' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
-            >
-              Other Agents
-            </button>
-          </div>
+          {/* Customer Scope Toggle (Own/Foreign) - Only for Super Admin */}
+          {user?.role === 'super_admin' && (
+            <div className="flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <button
+                onClick={() => { setCustomerScope('own'); fetchCustomers(); }}
+                className={`px-4 py-2.5 text-sm font-medium transition-colors ${customerScope === 'own' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+              >
+                My Customers
+              </button>
+              <button
+                onClick={() => { setCustomerScope('foreign'); fetchCustomers(); }}
+                className={`px-4 py-2.5 text-sm font-medium transition-colors ${customerScope === 'foreign' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+              >
+                Agent Customers
+              </button>
+            </div>
+          )}
         </div>
 
         <button
@@ -743,10 +788,14 @@ const CustomerManagement = () => {
                         <span>Budget: ৳{customer.budget?.min?.toLocaleString() || 0} - ৳{customer.budget?.max?.toLocaleString() || 0}</span>
                       </div>
                     )}
-                    {customer.interestedProperties && (
+                    {(customer.interestedProperties || customer.interestedPropertyCode) && (
                       <div className="flex items-center gap-2 text-gray-600 text-sm">
                         <HomeModernIcon className="w-4 h-4 text-gray-400" />
-                        <span className="line-clamp-1">{customer.interestedProperties}</span>
+                        <span className="line-clamp-1">
+                          {customer.interestedPropertyCode && <span className="font-medium text-purple-600">[{customer.interestedPropertyCode}]</span>}
+                          {customer.interestedPropertyCode && customer.interestedProperties && ' '}
+                          {customer.interestedProperties}
+                        </span>
                       </div>
                     )}
                     {customer.propertyType?.length > 0 && (
@@ -1234,14 +1283,30 @@ const CustomerManagement = () => {
 
                       <div className="col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-2">Interested Properties</label>
-                        <textarea
-                          name="interestedProperties"
-                          value={formData.interestedProperties}
-                          onChange={handleInputChange}
-                          rows={3}
-                          placeholder="Enter interested property details, locations, or requirements..."
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 resize-none"
-                        />
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="md:col-span-2">
+                            <textarea
+                              name="interestedProperties"
+                              value={formData.interestedProperties}
+                              onChange={handleInputChange}
+                              rows={3}
+                              placeholder="Enter interested property details, locations, or requirements..."
+                              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 resize-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">Property Code</label>
+                            <input
+                              type="text"
+                              name="interestedPropertyCode"
+                              value={formData.interestedPropertyCode}
+                              onChange={handleInputChange}
+                              placeholder="e.g. PROP-001"
+                              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                            />
+                            <p className="text-xs text-gray-400 mt-1">Enter property code if known</p>
+                          </div>
+                        </div>
                       </div>
 
                       {/* Assign Agent Section */}
@@ -1293,31 +1358,35 @@ const CustomerManagement = () => {
                             </select>
                           </div>
                         </div>
-                        <select
-                          name="assignedAgent"
-                          value={formData.assignedAgent}
-                          onChange={handleInputChange}
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
-                        >
-                          <option value="">
-                            {formData.customerZone ? 'Select Agent' : 'Select Agent (or choose zone first)'}
-                          </option>
-                          {agents
-                            .filter(agent => 
-                              agent.isActive !== false && 
-                              (!formData.customerZone || agent.assignedZone === formData.customerZone) &&
-                              (!formData.customerThana || agent.assignedThana === formData.customerThana)
-                            )
-                            .map(agent => (
-                              <option key={agent._id} value={agent._id}>
-                                {agent.name} {agent.assignedZone ? `(${agent.assignedZone}${agent.assignedThana ? ` - ${agent.assignedThana}` : ''})` : ''}
+                        {user?.role !== 'agent' && (
+                          <>
+                            <select
+                              name="assignedAgent"
+                              value={formData.assignedAgent}
+                              onChange={handleInputChange}
+                              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                            >
+                              <option value="">
+                                {formData.customerZone ? 'Select Agent' : 'Select Agent (or choose zone first)'}
                               </option>
-                            ))}
-                        </select>
-                        {formData.customerZone && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            Showing agents in: {formData.customerZone}{formData.customerThana ? ` - ${formData.customerThana}` : ''}
-                          </p>
+                              {agents
+                                .filter(agent => 
+                                  agent.isActive !== false && 
+                                  (!formData.customerZone || agent.assignedZone === formData.customerZone) &&
+                                  (!formData.customerThana || agent.assignedThana === formData.customerThana)
+                                )
+                                .map(agent => (
+                                  <option key={agent._id} value={agent._id}>
+                                    {agent.name} {agent.assignedZone ? `(${agent.assignedZone}${agent.assignedThana ? ` - ${agent.assignedThana}` : ''})` : ''}
+                                  </option>
+                                ))}
+                            </select>
+                            {formData.customerZone && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Showing agents in: {formData.customerZone}{formData.customerThana ? ` - ${formData.customerThana}` : ''}
+                              </p>
+                            )}
+                          </>
                         )}
                       </div>
 
@@ -1450,11 +1519,20 @@ const CustomerManagement = () => {
                         </div>
 
                         {/* Interested Properties */}
-                        {selectedCustomer.interestedProperties && (
+                        {(selectedCustomer.interestedProperties || selectedCustomer.interestedPropertyCode) && (
                           <div className="mb-6">
                             <h4 className="font-medium text-gray-900 mb-3">Interested Properties</h4>
                             <div className="p-3 bg-gray-50 rounded-xl">
-                              <p className="text-gray-700 whitespace-pre-wrap">{selectedCustomer.interestedProperties}</p>
+                              {selectedCustomer.interestedPropertyCode && (
+                                <div className="mb-2">
+                                  <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium">
+                                    Property Code: {selectedCustomer.interestedPropertyCode}
+                                  </span>
+                                </div>
+                              )}
+                              {selectedCustomer.interestedProperties && (
+                                <p className="text-gray-700 whitespace-pre-wrap">{selectedCustomer.interestedProperties}</p>
+                              )}
                             </div>
                           </div>
                         )}
@@ -1627,8 +1705,8 @@ const CustomerManagement = () => {
                                                 )}
                                               </div>
                                               
-                                              <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
-                                                {note.note || note.content}
+                                              <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap">
+                                                {getNoteText(note)}
                                               </p>
                                               
                                               {/* Show Follow-up Date if exists */}
