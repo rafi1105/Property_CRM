@@ -18,19 +18,39 @@ const app = express();
 // CORS configuration with environment-based origins
 const allowedOrigins = process.env.CLIENT_URL ? 
   process.env.CLIENT_URL.split(',').map(url => url.trim()) : 
-  ['http://localhost:5173', 'http://localhost:5174'];
+  [
+    'http://localhost:5173', 
+    'http://localhost:5174',
+    'https://sintecproperty.vercel.app',
+    'https://property-crm-client.vercel.app'
+  ];
+
+console.log('Allowed CORS origins:', allowedOrigins);
 
 app.use(cors({
   origin: function (origin, callback) {
+    console.log('CORS check for origin:', origin);
+    
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      console.log('No origin - allowing');
+      return callback(null, true);
+    }
     
     if (allowedOrigins.includes(origin)) {
+      console.log('Origin allowed:', origin);
       return callback(null, true);
     }
     
     // If in development, allow localhost
     if (process.env.NODE_ENV === 'development' && origin?.includes('localhost')) {
+      console.log('Development localhost allowed:', origin);
+      return callback(null, true);
+    }
+    
+    // For production, be more permissive with vercel domains
+    if (origin?.includes('.vercel.app')) {
+      console.log('Vercel domain allowed:', origin);
       return callback(null, true);
     }
     
@@ -43,14 +63,35 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
 
+// Additional CORS middleware for all requests
+app.use((req, res, next) => {
+  const origin = req.get('origin');
+  if (origin && (origin.includes('.vercel.app') || origin.includes('localhost'))) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+  }
+  next();
+});
+
 // Handle preflight requests explicitly with better logging
 app.options('*', (req, res) => {
-  console.log('Preflight request from:', req.get('origin'));
-  res.header('Access-Control-Allow-Origin', req.get('origin') || '*');
+  const origin = req.get('origin');
+  console.log('Preflight OPTIONS request from:', origin);
+  
+  // Set CORS headers for preflight
+  if (origin) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+  
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
   res.header('Access-Control-Allow-Credentials', 'true');
-  res.sendStatus(200);
+  res.header('Access-Control-Max-Age', '86400'); // Cache preflight for 24 hours
+  
+  console.log('Preflight response sent with status 200');
+  res.status(200).end();
 });
 
 app.use(express.json());
