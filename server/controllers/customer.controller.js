@@ -99,11 +99,6 @@ export const getAllCustomers = async (req, res) => {
     const customers = await Customer.find(query)
       .populate('addedBy', 'name email')
       .populate('assignedAgent', 'name email')
-      .populate({
-        path: 'interestedProperties',
-        select: 'name title price location zone thana area',
-        options: { strictPopulate: false }
-      })
       .populate('notes.addedBy', 'name')
       .sort(sort)
       .limit(limit * 1)
@@ -139,11 +134,6 @@ export const getCustomerById = async (req, res) => {
     const customer = await Customer.findById(req.params.id)
       .populate('addedBy', 'name email')
       .populate('assignedAgent', 'name email phone')
-      .populate({
-        path: 'interestedProperties',
-        select: 'name title price location zone thana area images',
-        options: { strictPopulate: false }
-      })
       .populate('notes.addedBy', 'name')
       .lean();
 
@@ -450,7 +440,6 @@ export const getMyCustomers = async (req, res) => {
       })
         .populate('addedBy', 'name email')
         .populate('assignedAgent', 'name email')
-        .populate('interestedProperties', 'name price location')
         .populate('notes.addedBy', 'name')
         .sort('-createdAt');
     } else {
@@ -458,7 +447,6 @@ export const getMyCustomers = async (req, res) => {
       customers = await Customer.find()
         .populate('addedBy', 'name email')
         .populate('assignedAgent', 'name email')
-        .populate('interestedProperties', 'name price location')
         .populate('notes.addedBy', 'name')
         .sort('-createdAt');
     }

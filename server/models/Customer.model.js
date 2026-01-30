@@ -44,11 +44,11 @@ const customerSchema = new mongoose.Schema({
     type: String,
     enum: ['land', 'building', 'house', 'apartment', 'commercial', 'villa', 'penthouse']
   }],
-  // Properties interested in
-  interestedProperties: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Property'
-  }],
+  // Properties interested in (text description)
+  interestedProperties: {
+    type: String,
+    trim: true
+  },
   // Assignment tracking
   assignedAgent: {
     type: mongoose.Schema.Types.ObjectId,

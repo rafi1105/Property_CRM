@@ -66,7 +66,7 @@ const AdminLogin = () => {
               <BuildingOfficeIcon className="w-7 h-7 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">PropertyCRM</h1>
+              <h1 className="text-2xl font-bold text-white">Sintec CRM</h1>
               <p className="text-purple-200 text-sm">Management System</p>
             </div>
           </div>
@@ -112,7 +112,7 @@ const AdminLogin = () => {
               <BuildingOfficeIcon className="w-7 h-7 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">PropertyCRM</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Sintec CRM</h1>
             </div>
           </div>
 
@@ -207,7 +207,7 @@ const AdminLogin = () => {
           </form>
 
           <p className="text-center text-gray-500 mt-8 text-sm">
-            © 2026 PropertyCRM. All rights reserved.
+            © 2026 Sintec CRM. All rights reserved.
           </p>
         </motion.div>
       </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { customerAPI, agentAPI, propertyAPI, authAPI } from '../utils/api';
 import { toast } from 'react-toastify';
@@ -34,6 +35,7 @@ import {
 
 const CustomerManagement = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
   const [properties, setProperties] = useState([]);
   const [agents, setAgents] = useState([]);
@@ -78,7 +80,7 @@ const CustomerManagement = () => {
     budget: { min: '', max: '' },
     preferredLocation: '',
     propertyType: [],
-    interestedProperties: [],
+    interestedProperties: '',
     assignedAgent: '',
     referredBy: '',
     customerZone: '',
@@ -367,7 +369,7 @@ const CustomerManagement = () => {
       budget: { min: '', max: '' },
       preferredLocation: '',
       propertyType: [],
-      interestedProperties: [],
+      interestedProperties: '',
       assignedAgent: '',
       referredBy: '',
       customerZone: '',
@@ -394,7 +396,7 @@ const CustomerManagement = () => {
         ? customer.preferredLocation.join(', ') 
         : '',
       propertyType: customer.propertyType || [],
-      interestedProperties: customer.interestedProperties?.map(p => p._id || p) || [],
+      interestedProperties: customer.interestedProperties || '',
       assignedAgent: customer.assignedAgent?._id || customer.assignedAgent || '',
       referredBy: customer.referredBy || '',
       customerZone: customer.customerZone || '',
@@ -741,10 +743,10 @@ const CustomerManagement = () => {
                         <span>Budget: ৳{customer.budget?.min?.toLocaleString() || 0} - ৳{customer.budget?.max?.toLocaleString() || 0}</span>
                       </div>
                     )}
-                    {customer.interestedProperties?.length > 0 && (
+                    {customer.interestedProperties && (
                       <div className="flex items-center gap-2 text-gray-600 text-sm">
                         <HomeModernIcon className="w-4 h-4 text-gray-400" />
-                        <span>{customer.interestedProperties.length} properties interested</span>
+                        <span className="line-clamp-1">{customer.interestedProperties}</span>
                       </div>
                     )}
                     {customer.propertyType?.length > 0 && (
@@ -754,6 +756,14 @@ const CustomerManagement = () => {
                             {type}
                           </span>
                         ))}
+                      </div>
+                    )}
+                    {customer.nextFollowUpDate && (
+                      <div className="flex items-center gap-2 text-sm mt-2">
+                        <CalendarIcon className="w-4 h-4 text-orange-500" />
+                        <span className={`${new Date(customer.nextFollowUpDate) <= new Date() ? 'text-red-600 font-medium' : 'text-orange-600'}`}>
+                          Follow-up: {new Date(customer.nextFollowUpDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -775,56 +785,50 @@ const CustomerManagement = () => {
                         <span className="text-xs text-gray-500">{customer.assignedAgent?.name}</span>
                       </div>
                     )}
-                    <div className="flex items-center gap-1 ml-auto">
+                    <div className="flex items-center gap-1 ml-auto flex-wrap">
                       <button
-                        onClick={() => { setSelectedCustomer(customer); setShowViewModal(true); }}
-                        className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="View"
+                        onClick={() => navigate(`/dashboard/customers/${customer._id}`)}
+                        className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                       >
-                        <EyeIcon className="w-4 h-4" />
+                        View
                       </button>
                       {!customer.agentClosed && (
                         <>
                           <button
                             onClick={() => openMoveModal(customer)}
-                            className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                            title="Move Customer"
+                            className="px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                           >
-                            <ArrowsRightLeftIcon className="w-4 h-4" />
+                            Move
                           </button>
                           <button
                             onClick={() => openAgentCloseModal(customer)}
-                            className="p-2 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                            title="Agent Close"
+                            className="px-2 py-1 text-xs font-medium text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
                           >
-                            <XCircleIcon className="w-4 h-4" />
+                            Close
                           </button>
                         </>
                       )}
                       {customer.agentClosed && user?.role !== 'agent' && (
                         <button
                           onClick={() => handleReopenCustomer(customer._id)}
-                          className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                          title="Reopen Customer"
+                          className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                         >
-                          <ArrowPathIcon className="w-4 h-4" />
+                          Reopen
                         </button>
                       )}
                       {user?.role !== 'agent' && (
                         <>
                           <button
                             onClick={() => openEditModal(customer)}
-                            className="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                            title="Edit"
+                            className="px-2 py-1 text-xs font-medium text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
                           >
-                            <PencilIcon className="w-4 h-4" />
+                            Edit
                           </button>
                           <button
                             onClick={() => handleDelete(customer._id)}
-                            className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Delete"
+                            className="px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           >
-                            <TrashIcon className="w-4 h-4" />
+                            Delete
                           </button>
                         </>
                       )}
@@ -844,6 +848,7 @@ const CustomerManagement = () => {
                       <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Contact</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Ref. By</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Budget</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Follow-up</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Status</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Priority</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Agent</th>
@@ -895,6 +900,15 @@ const CustomerManagement = () => {
                           </span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
+                          {customer.nextFollowUpDate ? (
+                            <span className={`text-xs font-medium ${new Date(customer.nextFollowUpDate) <= new Date() ? 'text-red-600 bg-red-50 px-2 py-1 rounded-lg' : 'text-orange-600 bg-orange-50 px-2 py-1 rounded-lg'}`}>
+                              {new Date(customer.nextFollowUpDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[customer.status] || statusColors.new}`}>
                             {customer.status}
                           </span>
@@ -910,56 +924,50 @@ const CustomerManagement = () => {
                           </span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 flex-wrap">
                             <button
-                              onClick={() => { setSelectedCustomer(customer); setShowViewModal(true); }}
-                              className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="View"
+                              onClick={() => navigate(`/dashboard/customers/${customer._id}`)}
+                              className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                             >
-                              <EyeIcon className="w-4 h-4" />
+                              View
                             </button>
                             {!customer.agentClosed && (
                               <>
                                 <button
                                   onClick={() => openMoveModal(customer)}
-                                  className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                  title="Move Customer"
+                                  className="px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                                 >
-                                  <ArrowsRightLeftIcon className="w-4 h-4" />
+                                  Move
                                 </button>
                                 <button
                                   onClick={() => openAgentCloseModal(customer)}
-                                  className="p-1.5 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                                  title="Agent Close"
+                                  className="px-2 py-1 text-xs font-medium text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
                                 >
-                                  <XCircleIcon className="w-4 h-4" />
+                                  Close
                                 </button>
                               </>
                             )}
                             {customer.agentClosed && user?.role !== 'agent' && (
                               <button
                                 onClick={() => handleReopenCustomer(customer._id)}
-                                className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                                title="Reopen Customer"
+                                className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                               >
-                                <ArrowPathIcon className="w-4 h-4" />
+                                Reopen
                               </button>
                             )}
                             {user?.role !== 'agent' && (
                               <>
                                 <button
                                   onClick={() => openEditModal(customer)}
-                                  className="p-1.5 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                                  title="Edit"
+                                  className="px-2 py-1 text-xs font-medium text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
                                 >
-                                  <PencilIcon className="w-4 h-4" />
+                                  Edit
                                 </button>
                                 <button
                                   onClick={() => handleDelete(customer._id)}
-                                  className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                  title="Delete"
+                                  className="px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                 >
-                                  <TrashIcon className="w-4 h-4" />
+                                  Delete
                                 </button>
                               </>
                             )}
@@ -1207,18 +1215,18 @@ const CustomerManagement = () => {
 
                       <div className="col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-2">Property Types</label>
-                        <div className="grid grid-cols-4 gap-2">
+                        <div className="grid grid-cols-4 gap-2 p-3 bg-gray-50 border border-gray-200 rounded-xl">
                           {['land', 'building', 'house', 'apartment', 'commercial', 'villa', 'penthouse'].map(type => (
-                            <label key={type} className="flex items-center space-x-2 bg-gray-50 p-2 rounded-lg">
+                            <label key={type} className="flex items-center space-x-2 bg-white p-2 rounded-lg border border-gray-200 hover:border-purple-300 cursor-pointer transition-colors">
                               <input
                                 type="checkbox"
                                 name="propertyType"
                                 value={type}
                                 checked={formData.propertyType.includes(type)}
                                 onChange={handleInputChange}
-                                className="rounded text-purple-600"
+                                className="w-4 h-4 rounded text-purple-600 border-gray-300 focus:ring-purple-500"
                               />
-                              <span className="text-sm capitalize">{type}</span>
+                              <span className="text-sm capitalize text-gray-700">{type}</span>
                             </label>
                           ))}
                         </div>
@@ -1226,63 +1234,14 @@ const CustomerManagement = () => {
 
                       <div className="col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-2">Interested Properties</label>
-                        <input
-                          type="text"
-                          placeholder="Search properties..."
-                          value={propertySearchTerm}
-                          onChange={(e) => setPropertySearchTerm(e.target.value)}
-                          className="w-full px-4 py-2 mb-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                        <textarea
+                          name="interestedProperties"
+                          value={formData.interestedProperties}
+                          onChange={handleInputChange}
+                          rows={3}
+                          placeholder="Enter interested property details, locations, or requirements..."
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 resize-none"
                         />
-                        <div className="border border-gray-200 rounded-xl max-h-48 overflow-y-auto bg-gray-50">
-                          {properties.length > 0 ? (
-                            properties
-                              .filter(p => 
-                                (p.name?.toLowerCase().includes(propertySearchTerm.toLowerCase()) || 
-                                p.title?.toLowerCase().includes(propertySearchTerm.toLowerCase()) ||
-                                p.location?.toLowerCase().includes(propertySearchTerm.toLowerCase()) ||
-                                p.propertyCode?.toLowerCase().includes(propertySearchTerm.toLowerCase()))
-                              )
-                              .slice(0, 20)
-                              .map(property => (
-                                <label
-                                  key={property._id}
-                                  className="flex items-start p-3 hover:bg-purple-50 cursor-pointer border-b last:border-b-0 transition-colors"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    value={property._id}
-                                    checked={formData.interestedProperties.includes(property._id)}
-                                    onChange={(e) => {
-                                      const value = e.target.value;
-                                      setFormData(prev => ({
-                                        ...prev,
-                                        interestedProperties: e.target.checked
-                                          ? [...prev.interestedProperties, value]
-                                          : prev.interestedProperties.filter(id => id !== value)
-                                      }));
-                                    }}
-                                    className="mt-1 mr-3 w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-                                  />
-                                  <div className="flex-1">
-                                    <div className="font-medium text-gray-900 text-sm">{property.title || property.name}</div>
-                                    <div className="text-xs text-gray-600">
-                                      ৳{property.price?.toLocaleString()} • {property.location || `${property.area || ''}, ${property.thana || ''}`}
-                                    </div>
-                                    {property.propertyCode && (
-                                      <span className="text-xs font-mono bg-purple-100 text-purple-700 px-1 rounded">{property.propertyCode}</span>
-                                    )}
-                                  </div>
-                                </label>
-                              ))
-                          ) : (
-                            <div className="p-4 text-center text-gray-500 text-sm">No properties available</div>
-                          )}
-                        </div>
-                        {formData.interestedProperties.length > 0 && (
-                          <div className="mt-2 text-sm text-purple-600">
-                            {formData.interestedProperties.length} propert{formData.interestedProperties.length === 1 ? 'y' : 'ies'} selected
-                          </div>
-                        )}
                       </div>
 
                       {/* Assign Agent Section */}
@@ -1491,21 +1450,11 @@ const CustomerManagement = () => {
                         </div>
 
                         {/* Interested Properties */}
-                        {selectedCustomer.interestedProperties?.length > 0 && (
+                        {selectedCustomer.interestedProperties && (
                           <div className="mb-6">
                             <h4 className="font-medium text-gray-900 mb-3">Interested Properties</h4>
-                            <div className="space-y-2">
-                              {selectedCustomer.interestedProperties.map(property => (
-                                <div key={property._id} className="border border-gray-200 rounded-xl p-3 flex justify-between items-center bg-gray-50">
-                                  <div>
-                                    <p className="font-medium text-gray-900">{property.title || property.name}</p>
-                                    <p className="text-sm text-gray-600">{property.location}</p>
-                                  </div>
-                                  <p className="text-lg font-semibold text-purple-600">
-                                    ৳{property.price?.toLocaleString()}
-                                  </p>
-                                </div>
-                              ))}
+                            <div className="p-3 bg-gray-50 rounded-xl">
+                              <p className="text-gray-700 whitespace-pre-wrap">{selectedCustomer.interestedProperties}</p>
                             </div>
                           </div>
                         )}
@@ -1524,14 +1473,12 @@ const CustomerManagement = () => {
                             Next Follow-up
                           </h4>
                           
-                          {(selectedCustomer.nextFollowUpDate || selectedCustomer.nextFollowUpAction) && (
+                          {selectedCustomer.nextFollowUpDate && (
                             <div className="mb-3 p-3 bg-white rounded-lg">
-                              {selectedCustomer.nextFollowUpDate && (
-                                <p className="text-sm text-gray-700">
-                                  <span className="font-medium">Date:</span> {new Date(selectedCustomer.nextFollowUpDate).toLocaleDateString()}
-                                </p>
-                              )}
-                              {selectedCustomer.nextFollowUpAction && (
+                              <p className="text-sm text-gray-700">
+                                <span className="font-medium">Date:</span> {new Date(selectedCustomer.nextFollowUpDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                              </p>
+                              {typeof selectedCustomer.nextFollowUpAction === 'string' && selectedCustomer.nextFollowUpAction && (
                                 <p className="text-sm text-gray-700 mt-1">
                                   <span className="font-medium">Action:</span> {selectedCustomer.nextFollowUpAction}
                                 </p>

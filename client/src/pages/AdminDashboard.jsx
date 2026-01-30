@@ -223,28 +223,61 @@ const AdminDashboard = () => {
     }
   };
 
-  // Chart data
-  const monthlyData = [
-    { name: 'Jan', properties: 12, customers: 8, revenue: 45000 },
-    { name: 'Feb', properties: 19, customers: 12, revenue: 52000 },
-    { name: 'Mar', properties: 15, customers: 10, revenue: 48000 },
-    { name: 'Apr', properties: 25, customers: 18, revenue: 61000 },
-    { name: 'May', properties: 22, customers: 15, revenue: 55000 },
-    { name: 'Jun', properties: 30, customers: 22, revenue: 72000 },
-  ];
+  // Chart data - use dynamic data from API or fallback to defaults
+  const monthlyData = stats?.charts?.monthlyStats?.length > 0 
+    ? stats.charts.monthlyStats.map(item => ({
+        name: item.month || item.name,
+        properties: item.properties || 0,
+        customers: item.customers || 0
+      }))
+    : [
+        { name: 'Jan', properties: 0, customers: 0 },
+        { name: 'Feb', properties: 0, customers: 0 },
+        { name: 'Mar', properties: 0, customers: 0 },
+        { name: 'Apr', properties: 0, customers: 0 },
+        { name: 'May', properties: 0, customers: 0 },
+        { name: 'Jun', properties: 0, customers: 0 },
+      ];
 
-  const propertyTypeData = [
-    { name: 'Residential', value: 45, color: '#8B5CF6' },
-    { name: 'Commercial', value: 25, color: '#EC4899' },
-    { name: 'Industrial', value: 15, color: '#F59E0B' },
-    { name: 'Land', value: 15, color: '#10B981' },
-  ];
+  // Dynamic property type data from API
+  const propertyTypeData = stats?.charts?.propertiesByType?.length > 0 
+    ? stats.charts.propertiesByType.map((item, index) => ({
+        name: item._id || item.name || 'Unknown',
+        value: item.count || item.value || 0,
+        color: ['#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444'][index % 6]
+      }))
+    : [
+        { name: 'Land', value: 0, color: '#8B5CF6' },
+        { name: 'Building', value: 0, color: '#EC4899' },
+        { name: 'House', value: 0, color: '#F59E0B' },
+        { name: 'Apartment', value: 0, color: '#10B981' },
+      ];
 
+  // Dynamic recent activities from stats
   const recentActivities = [
-    { id: 1, type: 'property', action: 'New property added', item: 'Luxury Villa - Gulshan', time: '2 hours ago', icon: BuildingOfficeIcon, color: 'bg-purple-100 text-purple-600' },
-    { id: 2, type: 'customer', action: 'New customer registered', item: 'Ahmed Rahman', time: '4 hours ago', icon: UsersIcon, color: 'bg-blue-100 text-blue-600' },
-    { id: 3, type: 'task', action: 'Task completed', item: 'Property inspection', time: '5 hours ago', icon: CheckCircleIcon, color: 'bg-green-100 text-green-600' },
-    { id: 4, type: 'deal', action: 'Deal closed', item: 'Apartment Sale - Banani', time: '1 day ago', icon: CurrencyDollarIcon, color: 'bg-yellow-100 text-yellow-600' },
+    ...(stats?.recentProperties || []).slice(0, 2).map((p, i) => ({
+      id: `prop-${i}`,
+      type: 'property',
+      action: 'Property added',
+      item: p.title || p.name || 'New Property',
+      time: p.createdAt ? new Date(p.createdAt).toLocaleDateString() : 'Recently',
+      icon: BuildingOfficeIcon,
+      color: 'bg-purple-100 text-purple-600'
+    })),
+    ...(stats?.recentCustomers || []).slice(0, 2).map((c, i) => ({
+      id: `cust-${i}`,
+      type: 'customer',
+      action: 'Customer added',
+      item: c.name || 'New Customer',
+      time: c.createdAt ? new Date(c.createdAt).toLocaleDateString() : 'Recently',
+      icon: UsersIcon,
+      color: 'bg-blue-100 text-blue-600'
+    }))
+  ].slice(0, 4);
+
+  // Fallback if no activities
+  const displayActivities = recentActivities.length > 0 ? recentActivities : [
+    { id: 1, type: 'info', action: 'No recent activity', item: 'Start adding properties or customers', time: 'Now', icon: ClockIcon, color: 'bg-gray-100 text-gray-600' },
   ];
 
   if (loading) {
@@ -300,12 +333,14 @@ const AdminDashboard = () => {
             <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
               <BuildingOfficeIcon className="w-6 h-6 text-purple-600" />
             </div>
-            <span className="flex items-center text-sm font-medium text-green-600 bg-green-50 px-2 py-1 rounded-lg">
-              <ArrowUpIcon className="w-3 h-3 mr-1" />
-              12%
-            </span>
+            <Link
+              to="/dashboard/properties"
+              className="text-xs font-medium text-purple-600 hover:text-purple-700"
+            >
+              View →
+            </Link>
           </div>
-          <h3 className="text-3xl font-bold text-gray-900">{stats?.totalProperties || 0}</h3>
+          <h3 className="text-3xl font-bold text-gray-900">{stats?.overview?.totalProperties || stats?.totalProperties || 0}</h3>
           <p className="text-gray-500 text-sm mt-1">Total Properties</p>
         </div>
 
@@ -315,12 +350,14 @@ const AdminDashboard = () => {
             <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
               <UsersIcon className="w-6 h-6 text-blue-600" />
             </div>
-            <span className="flex items-center text-sm font-medium text-green-600 bg-green-50 px-2 py-1 rounded-lg">
-              <ArrowUpIcon className="w-3 h-3 mr-1" />
-              8%
-            </span>
+            <Link
+              to="/dashboard/customers"
+              className="text-xs font-medium text-blue-600 hover:text-blue-700"
+            >
+              View →
+            </Link>
           </div>
-          <h3 className="text-3xl font-bold text-gray-900">{stats?.totalCustomers || 0}</h3>
+          <h3 className="text-3xl font-bold text-gray-900">{stats?.overview?.totalCustomers || stats?.totalCustomers || 0}</h3>
           <p className="text-gray-500 text-sm mt-1">Total Customers</p>
         </div>
 
@@ -331,7 +368,7 @@ const AdminDashboard = () => {
               <UsersIcon className="w-6 h-6 text-emerald-600" />
             </div>
             <Link
-              to="/customers"
+              to="/dashboard/customers"
               className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
             >
               View →
@@ -347,12 +384,14 @@ const AdminDashboard = () => {
             <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
               <ClipboardDocumentListIcon className="w-6 h-6 text-orange-600" />
             </div>
-            <span className="flex items-center text-sm font-medium text-red-600 bg-red-50 px-2 py-1 rounded-lg">
-              <ArrowDownIcon className="w-3 h-3 mr-1" />
-              3%
-            </span>
+            <Link
+              to="/dashboard/tasks"
+              className="text-xs font-medium text-orange-600 hover:text-orange-700"
+            >
+              View →
+            </Link>
           </div>
-          <h3 className="text-3xl font-bold text-gray-900">{stats?.pendingTasks || stats?.activeTasks || 0}</h3>
+          <h3 className="text-3xl font-bold text-gray-900">{stats?.overview?.totalTasks || stats?.pendingTasks || stats?.activeTasks || 0}</h3>
           <p className="text-gray-500 text-sm mt-1">Active Tasks</p>
         </div>
 
@@ -362,12 +401,14 @@ const AdminDashboard = () => {
             <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
               <UserGroupIcon className="w-6 h-6 text-green-600" />
             </div>
-            <span className="flex items-center text-sm font-medium text-green-600 bg-green-50 px-2 py-1 rounded-lg">
-              <ArrowUpIcon className="w-3 h-3 mr-1" />
-              5%
-            </span>
+            <Link
+              to="/dashboard/agents"
+              className="text-xs font-medium text-green-600 hover:text-green-700"
+            >
+              View →
+            </Link>
           </div>
-          <h3 className="text-3xl font-bold text-gray-900">{stats?.totalAgents || stats?.totalUsers || 0}</h3>
+          <h3 className="text-3xl font-bold text-gray-900">{stats?.overview?.totalAgents || stats?.totalAgents || stats?.totalUsers || 0}</h3>
           <p className="text-gray-500 text-sm mt-1">{user?.role === 'super_admin' ? 'Total Users' : 'Total Agents'}</p>
         </div>
       </div>
@@ -624,7 +665,7 @@ const AdminDashboard = () => {
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
           <h3 className="text-lg font-semibold text-gray-900 mb-6">Recent Activity</h3>
           <div className="space-y-4">
-            {recentActivities.map((activity) => (
+            {displayActivities.map((activity) => (
               <div key={activity.id} className="flex items-start gap-4">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${activity.color}`}>
                   <activity.icon className="w-5 h-5" />

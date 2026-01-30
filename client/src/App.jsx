@@ -4,6 +4,7 @@ import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import PropertyManagement from './pages/PropertyManagement';
 import CustomerManagement from './pages/CustomerManagement';
+import CustomerDetails from './pages/CustomerDetails';
 import ClosedDeals from './pages/ClosedDeals';
 import Reports from './pages/Reports';
 import UserManagement from './pages/UserManagement';
@@ -125,6 +126,14 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={['agent']}>
             <CustomerManagement />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/dashboard/customers/:id" 
+        element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'agent']}>
+            <CustomerDetails />
           </ProtectedRoute>
         } 
       />

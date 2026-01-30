@@ -122,7 +122,7 @@ const Sidebar = () => {
               <BuildingOfficeIcon className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-gray-900">PropertyCRM</h1>
+              <h1 className="text-lg font-bold text-gray-900">Sintec CRM</h1>
               <p className="text-xs text-gray-500">Management System</p>
             </div>
           </div>
