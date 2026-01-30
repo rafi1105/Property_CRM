@@ -83,7 +83,10 @@ app.get('/', (req, res) => {
       customers: '/api/customers',
       tasks: '/api/tasks',
       agents: '/api/agents',
-      dashboard: '/api/dashboard'
+      dashboard: '/api/dashboard',
+      notifications: '/api/notifications',
+      visits: '/api/visits',
+      reports: '/api/reports'
     }
   });
 });
