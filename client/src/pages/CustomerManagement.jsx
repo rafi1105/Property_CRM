@@ -22,6 +22,7 @@ import {
   UserCircleIcon,
   TagIcon,
   CalendarDaysIcon,
+  CalendarIcon,
   ClockIcon,
   TableCellsIcon,
   Squares2X2Icon,
@@ -53,6 +54,7 @@ const CustomerManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
   const [newNote, setNewNote] = useState('');
+  const [noteFollowUpDate, setNoteFollowUpDate] = useState('');
   const [nextFollowUpDate, setNextFollowUpDate] = useState('');
   const [nextFollowUpAction, setNextFollowUpAction] = useState('');
   const [viewMode, setViewMode] = useState('card'); // 'card' or 'table'
@@ -319,9 +321,14 @@ const CustomerManagement = () => {
   const handleAddNote = async () => {
     if (!newNote.trim()) return;
     try {
-      await customerAPI.addNote(selectedCustomer._id, { note: newNote });
+      const noteData = { note: newNote };
+      if (noteFollowUpDate) {
+        noteData.nextFollowUpDate = noteFollowUpDate;
+      }
+      await customerAPI.addNote(selectedCustomer._id, noteData);
       toast.success('Note added!');
       setNewNote('');
+      setNoteFollowUpDate('');
       const response = await customerAPI.getById(selectedCustomer._id);
       setSelectedCustomer(response.data.customer || response.data);
     } catch (error) {
@@ -1583,16 +1590,28 @@ const CustomerManagement = () => {
                                 }
                               }}
                             />
-                            <div className="flex justify-between items-center mt-2">
-                              <span className="text-xs text-gray-500">Press Ctrl+Enter to send</span>
-                              <button
-                                onClick={handleAddNote}
-                                disabled={!newNote.trim()}
-                                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 text-sm font-medium"
-                              >
-                                <PlusIcon className="w-4 h-4" />
-                                Add Entry
-                              </button>
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mt-2">
+                              <div className="flex items-center gap-2">
+                                <label className="text-xs text-gray-600 font-medium">Next Follow-up:</label>
+                                <input
+                                  type="date"
+                                  value={noteFollowUpDate}
+                                  onChange={(e) => setNoteFollowUpDate(e.target.value)}
+                                  min={new Date().toISOString().split('T')[0]}
+                                  className="px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                />
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-500">Ctrl+Enter to send</span>
+                                <button
+                                  onClick={handleAddNote}
+                                  disabled={!newNote.trim()}
+                                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 text-sm font-medium"
+                                >
+                                  <PlusIcon className="w-4 h-4" />
+                                  Add Entry
+                                </button>
+                              </div>
                             </div>
                           </div>
 
@@ -1664,6 +1683,18 @@ const CustomerManagement = () => {
                                               <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
                                                 {note.note || note.content}
                                               </p>
+                                              
+                                              {/* Show Follow-up Date if exists */}
+                                              {note.nextFollowUpDate && (
+                                                <div className="mt-2 flex items-center gap-2 text-xs bg-orange-50 text-orange-700 px-2 py-1 rounded-lg w-fit">
+                                                  <CalendarIcon className="w-3 h-3" />
+                                                  <span>Follow-up: {new Date(note.nextFollowUpDate).toLocaleDateString('en-US', { 
+                                                    month: 'short', 
+                                                    day: 'numeric', 
+                                                    year: 'numeric' 
+                                                  })}</span>
+                                                </div>
+                                              )}
                                             </div>
                                           </div>
                                         </div>

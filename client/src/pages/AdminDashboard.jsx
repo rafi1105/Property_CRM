@@ -946,6 +946,109 @@ const AdminDashboard = () => {
           </div>
         </Dialog>
       </Transition>
+
+      {/* Follow-up Modal */}
+      <Transition appear show={showFollowUpModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setShowFollowUpModal(false)}>
+          <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
+                <Dialog.Panel className="w-full max-w-3xl bg-white rounded-2xl shadow-xl">
+                  <div className="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+                    <Dialog.Title className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                      <ExclamationCircleIcon className="w-6 h-6 text-orange-500" />
+                      Follow-up Due ({dueFollowUps.length})
+                    </Dialog.Title>
+                    <button onClick={() => setShowFollowUpModal(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-100">
+                      <XMarkIcon className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="p-6 max-h-[70vh] overflow-y-auto">
+                    {dueFollowUps.length === 0 ? (
+                      <div className="text-center py-12">
+                        <CheckCircleIcon className="w-16 h-16 mx-auto text-green-400 mb-4" />
+                        <p className="text-gray-500 font-medium">No due follow-ups!</p>
+                        <p className="text-gray-400 text-sm">All customers are up to date.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {dueFollowUps.map((customer) => (
+                          <div key={customer._id} className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors">
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center">
+                                  <span className="text-white font-semibold">
+                                    {customer.name?.charAt(0)?.toUpperCase() || 'C'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <h4 className="font-semibold text-gray-900">{customer.name || 'Unknown'}</h4>
+                                  <p className="text-sm text-gray-500">{customer.phone}</p>
+                                  {customer.assignedAgent && (
+                                    <p className="text-xs text-purple-600 mt-1">
+                                      Agent: {customer.assignedAgent.name || 'Unassigned'}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  customer.status === 'new' ? 'bg-blue-100 text-blue-700' :
+                                  customer.status === 'interested' ? 'bg-green-100 text-green-700' :
+                                  customer.status === 'visit-done' ? 'bg-purple-100 text-purple-700' :
+                                  'bg-gray-100 text-gray-700'
+                                }`}>
+                                  {customer.status}
+                                </span>
+                                {customer.nextFollowUpDate && (
+                                  <p className="text-xs text-orange-600 mt-2 flex items-center gap-1 justify-end">
+                                    <CalendarDaysIcon className="w-3 h-3" />
+                                    Due: {new Date(customer.nextFollowUpDate).toLocaleDateString()}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            {customer.nextFollowUpAction && (
+                              <div className="mt-3 bg-orange-50 rounded-lg p-2 text-sm text-orange-700">
+                                <span className="font-medium">Action: </span>{customer.nextFollowUpAction}
+                              </div>
+                            )}
+                            <div className="mt-3 flex justify-end">
+                              <button
+                                onClick={() => {
+                                  setShowFollowUpModal(false);
+                                  navigate('/dashboard/customers');
+                                }}
+                                className="text-sm text-purple-600 hover:text-purple-800 font-medium"
+                              >
+                                View Details →
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border-t border-gray-100 px-6 py-4 flex justify-end">
+                    <button
+                      onClick={() => setShowFollowUpModal(false)}
+                      className="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-medium"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
     </DashboardLayout>
   );
 };

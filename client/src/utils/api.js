@@ -138,6 +138,24 @@ export const visitAPI = {
   getTotalVisits: (agentId) => api.get('/visits/stats/total', { params: { agentId } })
 };
 
+// Report APIs
+export const reportAPI = {
+  // Agent endpoints
+  create: (data) => api.post('/reports', data),
+  getMyReports: (params) => api.get('/reports/my', { params }),
+  getTodayReport: () => api.get('/reports/today'),
+  
+  // Zonal Agent endpoints
+  getZoneReports: (params) => api.get('/reports/zone', { params }),
+  
+  // Super Admin endpoints
+  getAll: (params) => api.get('/reports', { params }),
+  getStats: () => api.get('/reports/stats'),
+  getById: (id) => api.get(`/reports/${id}`),
+  review: (id, data) => api.patch(`/reports/${id}/review`, data),
+  delete: (id) => api.delete(`/reports/${id}`)
+};
+
 // Upload APIs - Uses PHP script directly for Hostinger storage
 const UPLOAD_PHP_URL = '/api/upload.php';
 

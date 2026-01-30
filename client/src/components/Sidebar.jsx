@@ -14,6 +14,8 @@ import {
   ChevronRightIcon,
   UserCircleIcon,
   ChartBarIcon,
+  ArchiveBoxIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeIconSolid,
@@ -22,6 +24,8 @@ import {
   ClipboardDocumentListIcon as ClipboardDocumentListIconSolid,
   UserGroupIcon as UserGroupIconSolid,
   BellIcon as BellIconSolid,
+  ArchiveBoxIcon as ArchiveBoxIconSolid,
+  DocumentTextIcon as DocumentTextIconSolid,
 } from '@heroicons/react/24/solid';
 
 const Sidebar = () => {
@@ -57,6 +61,13 @@ const Sidebar = () => {
       roles: ['super_admin', 'admin', 'agent'],
     },
     {
+      name: 'Closed Deals',
+      path: '/dashboard/closed-deals',
+      icon: ArchiveBoxIcon,
+      iconSolid: ArchiveBoxIconSolid,
+      roles: ['super_admin', 'admin', 'agent'],
+    },
+    {
       name: 'Tasks',
       path: '/dashboard/tasks',
       icon: ClipboardDocumentListIcon,
@@ -83,6 +94,13 @@ const Sidebar = () => {
       icon: BellIcon,
       iconSolid: BellIconSolid,
       roles: ['super_admin', 'admin', 'agent'],
+    },
+    {
+      name: 'Daily Reports',
+      path: '/dashboard/reports',
+      icon: DocumentTextIcon,
+      iconSolid: DocumentTextIconSolid,
+      roles: ['super_admin', 'agent'],
     },
   ];
 

@@ -360,7 +360,7 @@ export const addNote = async (req, res) => {
       });
     }
 
-    const { note } = req.body;
+    const { note, nextFollowUpDate } = req.body;
 
     const customer = await Customer.findById(req.params.id);
     if (!customer) {
@@ -370,10 +370,19 @@ export const addNote = async (req, res) => {
       });
     }
 
-    customer.notes.push({
+    // Add note with optional follow-up date
+    const noteData = {
       note,
       addedBy: req.user._id
-    });
+    };
+    
+    if (nextFollowUpDate) {
+      noteData.nextFollowUpDate = new Date(nextFollowUpDate);
+      // Also update customer's main nextFollowUpDate if note has one
+      customer.nextFollowUpDate = new Date(nextFollowUpDate);
+    }
+
+    customer.notes.push(noteData);
 
     await customer.save();
     

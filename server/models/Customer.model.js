@@ -73,6 +73,9 @@ const customerSchema = new mongoose.Schema({
   // Communication history
   notes: [{
     note: String,
+    nextFollowUpDate: {
+      type: Date
+    },
     addedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'

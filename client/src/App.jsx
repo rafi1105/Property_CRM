@@ -4,6 +4,8 @@ import AdminLogin from './pages/AdminLogin';
 import AdminDashboard from './pages/AdminDashboard';
 import PropertyManagement from './pages/PropertyManagement';
 import CustomerManagement from './pages/CustomerManagement';
+import ClosedDeals from './pages/ClosedDeals';
+import Reports from './pages/Reports';
 import UserManagement from './pages/UserManagement';
 import AgentManagement from './pages/AgentManagement';
 import TaskManager from './pages/TaskManager';
@@ -126,6 +128,14 @@ function App() {
           </ProtectedRoute>
         } 
       />
+      <Route 
+        path="/dashboard/closed-deals" 
+        element={
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'agent']}>
+            <ClosedDeals />
+          </ProtectedRoute>
+        } 
+      />
 
       {/* Agent Management Routes */}
       <Route 
@@ -153,6 +163,16 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={['super_admin', 'admin', 'agent']}>
             <NotificationsPage />
+          </ProtectedRoute>
+        } 
+      />
+
+      {/* Reports Route */}
+      <Route 
+        path="/dashboard/reports" 
+        element={
+          <ProtectedRoute allowedRoles={['super_admin', 'agent']}>
+            <Reports />
           </ProtectedRoute>
         } 
       />
