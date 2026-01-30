@@ -152,8 +152,20 @@ export const adminLogin = async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
 
-    res.json(generateTokenResponse(user));
+    // Generate token
+    try {
+      const response = generateTokenResponse(user);
+      res.json(response);
+    } catch (tokenError) {
+      console.error('Token generation error:', tokenError);
+      res.status(500).json({
+        success: false,
+        message: 'Error generating authentication token',
+        error: tokenError.message
+      });
+    }
   } catch (error) {
+    console.error('Admin login error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error during admin login',

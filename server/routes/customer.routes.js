@@ -8,6 +8,8 @@ import {
   deleteCustomer,
   assignAgent,
   addNote,
+  editNote,
+  deleteNote,
   getMyCustomers,
   getDueFollowUpsCount,
   getDueFollowUps,
@@ -38,6 +40,10 @@ router.put('/:id', authenticate, agentAndAbove, updateCustomer);
 router.post('/:id/notes', authenticate, agentAndAbove, [
   body('note').trim().notEmpty().withMessage('Note is required')
 ], addNote);
+router.put('/:id/notes/:noteId', authenticate, agentAndAbove, [
+  body('note').trim().notEmpty().withMessage('Note is required')
+], editNote);
+router.delete('/:id/notes/:noteId', authenticate, agentAndAbove, deleteNote);
 
 // Agent close - allows agents to close their own customers
 router.put('/:id/agent-close', authenticate, agentAndAbove, agentCloseCustomer);

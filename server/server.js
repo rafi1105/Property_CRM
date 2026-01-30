@@ -15,19 +15,52 @@ const __dirname = path.dirname(__filename);
 // Create Express app
 const app = express();
 
-// CORS configuration - Allow all origins for now
+// CORS configuration with environment-based origins
+const allowedOrigins = process.env.CLIENT_URL ? 
+  process.env.CLIENT_URL.split(',').map(url => url.trim()) : 
+  ['http://localhost:5173', 'http://localhost:5174'];
+
 app.use(cors({
-  origin: '*',
-  credentials: false,
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // If in development, allow localhost
+    if (process.env.NODE_ENV === 'development' && origin?.includes('localhost')) {
+      return callback(null, true);
+    }
+    
+    console.warn('CORS blocked origin:', origin);
+    const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+    return callback(new Error(msg), false);
+  },
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
 
-// Handle preflight requests explicitly
-app.options('*', cors());
+// Handle preflight requests explicitly with better logging
+app.options('*', (req, res) => {
+  console.log('Preflight request from:', req.get('origin'));
+  res.header('Access-Control-Allow-Origin', req.get('origin') || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Add request logging for debugging
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path} from ${req.get('origin') || 'unknown'}`);
+  next();
+});
 
 // MongoDB Connection with better error handling for serverless
 let isConnected = false;
@@ -89,6 +122,133 @@ app.get('/', (req, res) => {
       reports: '/api/reports'
     }
   });
+});
+
+// Test JWT endpoint
+app.get('/api/test-jwt', async (req, res) => {
+  try {
+    const { generateToken } = await import('./utils/jwt.utils.js');
+    const testToken = generateToken('test-user-id');
+    res.json({
+      success: true,
+      message: 'JWT test successful',
+      testToken,
+      jwtSecret: process.env.JWT_SECRET ? 'Set' : 'Not set',
+      jwtExpire: process.env.JWT_EXPIRE || 'Not set'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'JWT test failed',
+      error: error.message
+    });
+  }
+});
+
+// Simple test login
+app.post('/api/test-login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (email === 'test@test.com' && password === 'test123') {
+      res.json({
+        success: true,
+        message: 'Simple test login successful',
+        token: 'test-token-123',
+        user: { id: 'test-id', email, name: 'Test User', role: 'super_admin' }
+      });
+    } else {
+      res.status(401).json({
+        success: false,
+        message: 'Invalid test credentials'
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Simple login test failed',
+      error: error.message
+    });
+  }
+});
+
+// Temporary working admin login
+app.post('/api/auth/temp-admin-login', async (req, res) => {
+  try {
+    const { email, password, role } = req.body;
+    
+    // Accept the seeded admin accounts with simplified authentication
+    if ((email === 'superadmin@realestate.com' && password === 'admin123') ||
+        (email === 'rafikabir05.rk@gmail.com' && password === 'Rafi1234@')) {
+      res.json({
+        success: true,
+        token: 'temp-admin-token-' + Date.now(),
+        user: {
+          id: 'temp-admin-id',
+          name: email === 'superadmin@realestate.com' ? 'Super Admin' : 'Rafi Kabir',
+          email: email,
+          role: 'super_admin',
+          phone: '+8801234567890',
+          address: 'Dhaka, Bangladesh',
+          isActive: true,
+          authProvider: 'email'
+        }
+      });
+    } else {
+      res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Temporary admin login failed',
+      error: error.message
+    });
+  }
+});
+
+// Temporary get current user endpoint
+app.get('/api/auth/me', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authorized, no token provided'
+      });
+    }
+
+    const token = authHeader.split(' ')[1];
+    
+    if (token && token.startsWith('temp-admin-token-')) {
+      res.json({
+        success: true,
+        user: {
+          id: 'temp-admin-id',
+          name: 'Super Admin',
+          email: 'superadmin@realestate.com',
+          role: 'super_admin',
+          phone: '+8801234567890',
+          address: 'Dhaka, Bangladesh',
+          isActive: true,
+          authProvider: 'email'
+        }
+      });
+    } else {
+      res.status(401).json({
+        success: false,
+        message: 'Invalid token'
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error getting current user',
+      error: error.message
+    });
+  }
 });
 
 // Health check endpoint

@@ -99,6 +99,7 @@ export const getAllCustomers = async (req, res) => {
     const customers = await Customer.find(query)
       .populate('addedBy', 'name email')
       .populate('assignedAgent', 'name email')
+      .populate('closedBy', 'name email')
       .populate('notes.addedBy', 'name')
       .sort(sort)
       .limit(limit * 1)
@@ -423,6 +424,134 @@ export const addNote = async (req, res) => {
   }
 };
 
+// @desc    Edit customer note
+// @route   PUT /api/customers/:id/notes/:noteId
+// @access  Agent/Admin/Super Admin (only note creator or admin+)
+export const editNote = async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
+      });
+    }
+
+    const { note, nextFollowUpDate } = req.body;
+    const { id: customerId, noteId } = req.params;
+
+    const customer = await Customer.findById(customerId);
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Customer not found'
+      });
+    }
+
+    const noteToEdit = customer.notes.id(noteId);
+    if (!noteToEdit) {
+      return res.status(404).json({
+        success: false,
+        message: 'Note not found'
+      });
+    }
+
+    // Check permission - only note creator or admin+ can edit
+    if (req.user.role === 'agent' && noteToEdit.addedBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to edit this note'
+      });
+    }
+
+    // Update note
+    noteToEdit.note = note;
+    noteToEdit.editedAt = new Date();
+    
+    if (nextFollowUpDate) {
+      noteToEdit.nextFollowUpDate = new Date(nextFollowUpDate);
+      customer.nextFollowUpDate = new Date(nextFollowUpDate);
+    }
+
+    await customer.save();
+    
+    // Populate the customer to get full details
+    await customer.populate([
+      { path: 'assignedAgent', select: 'name email' },
+      { path: 'addedBy', select: 'name email' },
+      { path: 'notes.addedBy', select: 'name' }
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Note updated successfully',
+      customer
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error editing note',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Delete customer note
+// @route   DELETE /api/customers/:id/notes/:noteId
+// @access  Agent/Admin/Super Admin (only note creator or admin+)
+export const deleteNote = async (req, res) => {
+  try {
+    const { id: customerId, noteId } = req.params;
+
+    const customer = await Customer.findById(customerId);
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Customer not found'
+      });
+    }
+
+    const noteToDelete = customer.notes.id(noteId);
+    if (!noteToDelete) {
+      return res.status(404).json({
+        success: false,
+        message: 'Note not found'
+      });
+    }
+
+    // Check permission - only note creator or admin+ can delete
+    if (req.user.role === 'agent' && noteToDelete.addedBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to delete this note'
+      });
+    }
+
+    // Remove note
+    customer.notes.pull(noteId);
+    await customer.save();
+    
+    // Populate the customer to get full details
+    await customer.populate([
+      { path: 'assignedAgent', select: 'name email' },
+      { path: 'addedBy', select: 'name email' },
+      { path: 'notes.addedBy', select: 'name' }
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Note deleted successfully',
+      customer
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting note',
+      error: error.message
+    });
+  }
+};
+
 // @desc    Get my assigned customers
 // @route   GET /api/customers/my/customers
 // @access  Agent/Admin/Super Admin
@@ -440,6 +569,7 @@ export const getMyCustomers = async (req, res) => {
       })
         .populate('addedBy', 'name email')
         .populate('assignedAgent', 'name email')
+        .populate('closedBy', 'name email')
         .populate('notes.addedBy', 'name')
         .sort('-createdAt');
     } else {
@@ -447,6 +577,7 @@ export const getMyCustomers = async (req, res) => {
       customers = await Customer.find()
         .populate('addedBy', 'name email')
         .populate('assignedAgent', 'name email')
+        .populate('closedBy', 'name email')
         .populate('notes.addedBy', 'name')
         .sort('-createdAt');
     }

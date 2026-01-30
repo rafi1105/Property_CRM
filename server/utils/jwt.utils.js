@@ -2,11 +2,19 @@ import jwt from 'jsonwebtoken';
 
 // Generate JWT token
 export const generateToken = (userId) => {
-  return jwt.sign(
-    { id: userId },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRE || '7d' }
-  );
+  try {
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET environment variable is not set');
+    }
+    return jwt.sign(
+      { id: userId },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRE || '7d' }
+    );
+  } catch (error) {
+    console.error('Error generating JWT token:', error);
+    throw error;
+  }
 };
 
 // Verify JWT token
@@ -20,17 +28,26 @@ export const verifyToken = (token) => {
 
 // Generate token response
 export const generateTokenResponse = (user) => {
-  const token = generateToken(user._id);
-  
-  return {
-    success: true,
-    token,
-    user: {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      photoURL: user.photoURL
-    }
-  };
+  try {
+    const token = generateToken(user._id);
+    
+    return {
+      success: true,
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        address: user.address,
+        isActive: user.isActive,
+        authProvider: user.authProvider,
+        photoURL: user.photoURL
+      }
+    };
+  } catch (error) {
+    console.error('Error generating token response:', error);
+    throw new Error(`Token generation failed: ${error.message}`);
+  }
 };

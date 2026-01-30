@@ -49,6 +49,11 @@ const customerSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  // Property code for interested property
+  interestedPropertyCode: {
+    type: String,
+    trim: true
+  },
   // Assignment tracking
   assignedAgent: {
     type: mongoose.Schema.Types.ObjectId,
@@ -83,6 +88,9 @@ const customerSchema = new mongoose.Schema({
     addedAt: {
       type: Date,
       default: Date.now
+    },
+    editedAt: {
+      type: Date
     }
   }],
   lastContactDate: {
