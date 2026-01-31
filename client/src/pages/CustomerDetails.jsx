@@ -24,8 +24,18 @@ import {
   EyeIcon,
   CheckCircleIcon,
   TrashIcon,
-  XMarkIcon
+  XMarkIcon,
+  ArrowPathIcon,
+  StarIcon,
+  DocumentTextIcon,
+  ChartBarIcon,
+  BellAlertIcon,
+  UserGroupIcon,
+  InformationCircleIcon,
+  ArrowTopRightOnSquareIcon,
+  SparklesIcon
 } from '@heroicons/react/24/outline';
+import { StarIcon as StarSolidIcon } from '@heroicons/react/24/solid';
 
 // Helper function to extract note text properly
 const getNoteText = (noteObj) => {
@@ -160,6 +170,38 @@ const CustomerDetails = () => {
     setEditNoteFollowUpDate('');
   };
 
+  // Quick status change handler
+  const handleQuickStatusChange = async (newStatus) => {
+    try {
+      await customerAPI.update(customer._id, { status: newStatus });
+      setCustomer(prev => ({ ...prev, status: newStatus }));
+      toast.success('Status updated successfully!');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update status');
+    }
+  };
+
+  // Quick priority change handler
+  const handleQuickPriorityChange = async (newPriority) => {
+    try {
+      await customerAPI.update(customer._id, { priority: newPriority });
+      setCustomer(prev => ({ ...prev, priority: newPriority }));
+      toast.success('Priority updated successfully!');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update priority');
+    }
+  };
+
+  // Calculate days since creation
+  const daysSinceCreation = customer ? Math.floor((new Date() - new Date(customer.createdAt)) / (1000 * 60 * 60 * 24)) : 0;
+  
+  // Calculate days until/since follow-up
+  const getFollowUpStatus = () => {
+    if (!customer?.nextFollowUpDate) return null;
+    const days = Math.floor((new Date(customer.nextFollowUpDate) - new Date()) / (1000 * 60 * 60 * 24));
+    return days;
+  };
+
   const statusColors = {
     'new': 'bg-blue-100 text-blue-700',
     'interested': 'bg-green-100 text-green-700',
@@ -216,42 +258,135 @@ const CustomerDetails = () => {
             <span>Back to Customers</span>
           </button>
           
-          <div className="flex flex-col gap-3 sm:gap-4">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0">
-                <span className="text-white font-bold text-xl sm:text-2xl">
-                  {customer.name?.charAt(0)?.toUpperCase()}
-                </span>
-              </div>
-              <div className="min-w-0 flex-1">
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">{customer.name}</h1>
-                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-1">
-                  <span className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-xs sm:text-sm font-medium ${statusColors[customer.status]}`}>
-                    {customer.status}
+          {/* Customer Header Card */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+              <div className="flex items-start gap-3 sm:gap-4">
+                <div className="w-14 h-14 sm:w-20 sm:h-20 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg">
+                  <span className="text-white font-bold text-2xl sm:text-3xl">
+                    {customer.name?.charAt(0)?.toUpperCase()}
                   </span>
-                  <span className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded-lg text-xs sm:text-sm font-medium border ${priorityColors[customer.priority]}`}>
-                    {customer.priority}
-                  </span>
-                  {customer.isFollowUpDue && (
-                    <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-orange-100 text-orange-700 rounded-full text-xs sm:text-sm font-medium flex items-center gap-1">
-                      <ClockIcon className="w-3 h-3 sm:w-4 sm:h-4" />
-                      <span className="hidden sm:inline">Follow-up Due</span>
-                      <span className="sm:hidden">Due</span>
-                    </span>
-                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{customer.name}</h1>
+                    {customer.agentClosed && (
+                      <span className="px-2 py-0.5 bg-gray-200 text-gray-600 rounded text-xs font-medium">Closed by Agent</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 text-gray-500 text-sm">
+                    <PhoneIcon className="w-4 h-4" />
+                    <span>{customer.phone}</span>
+                    {customer.email && (
+                      <>
+                        <span className="hidden sm:inline">•</span>
+                        <EnvelopeIcon className="w-4 h-4 hidden sm:inline" />
+                        <span className="hidden sm:inline truncate max-w-[200px]">{customer.email}</span>
+                      </>
+                    )}
+                  </div>
+                  
+                  {/* Quick Status & Priority Change */}
+                  <div className="flex flex-wrap items-center gap-2 mt-3">
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-gray-500">Status:</span>
+                      {!customer.agentClosed ? (
+                        <select
+                          value={customer.status}
+                          onChange={(e) => handleQuickStatusChange(e.target.value)}
+                          className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer focus:ring-2 focus:ring-purple-500 ${statusColors[customer.status]}`}
+                        >
+                          <option value="new">New</option>
+                          <option value="interested">Interested</option>
+                          <option value="visit-possible">Visit Possible</option>
+                          <option value="visit-done">Visit Done</option>
+                          <option value="sellable">Sellable</option>
+                          <option value="short-process">Short Process</option>
+                          <option value="long-process">Long Process</option>
+                          <option value="closed">Closed</option>
+                        </select>
+                      ) : (
+                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${statusColors[customer.status]}`}>
+                          {customer.status}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-gray-500">Priority:</span>
+                      <select
+                        value={customer.priority}
+                        onChange={(e) => handleQuickPriorityChange(e.target.value)}
+                        className={`text-xs font-medium px-2 py-1 rounded-lg border cursor-pointer focus:ring-2 focus:ring-purple-500 ${priorityColors[customer.priority]}`}
+                      >
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                      </select>
+                    </div>
+                    {customer.isFollowUpDue && (
+                      <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium flex items-center gap-1 animate-pulse">
+                        <BellAlertIcon className="w-3.5 h-3.5" />
+                        Follow-up Due!
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
+              
+              {/* Action Buttons */}
+              <div className="flex flex-wrap gap-2 sm:flex-col">
+                {user?.role !== 'agent' && (
+                  <button
+                    onClick={() => navigate(`/dashboard/customers?edit=${customer._id}`)}
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors text-sm flex-1 sm:flex-none"
+                  >
+                    <PencilIcon className="w-4 h-4" />
+                    Edit
+                  </button>
+                )}
+                <button
+                  onClick={fetchCustomer}
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors text-sm flex-1 sm:flex-none"
+                >
+                  <ArrowPathIcon className="w-4 h-4" />
+                  Refresh
+                </button>
+              </div>
             </div>
-            
-            {user?.role !== 'agent' && (
-              <button
-                onClick={() => navigate(`/dashboard/customers?edit=${customer._id}`)}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors text-sm sm:text-base w-full sm:w-auto sm:self-start"
-              >
-                <PencilIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                Edit Customer
-              </button>
-            )}
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+          <div className="bg-white rounded-xl p-3 sm:p-4 border border-gray-100 shadow-sm">
+            <div className="flex items-center gap-2 mb-1">
+              <CalendarIcon className="w-4 h-4 text-purple-500" />
+              <span className="text-xs text-gray-500">Customer Age</span>
+            </div>
+            <p className="text-lg sm:text-xl font-bold text-gray-900">{daysSinceCreation} days</p>
+          </div>
+          <div className="bg-white rounded-xl p-3 sm:p-4 border border-gray-100 shadow-sm">
+            <div className="flex items-center gap-2 mb-1">
+              <ChatBubbleLeftIcon className="w-4 h-4 text-blue-500" />
+              <span className="text-xs text-gray-500">Notes</span>
+            </div>
+            <p className="text-lg sm:text-xl font-bold text-gray-900">{customer.notes?.length || 0}</p>
+          </div>
+          <div className="bg-white rounded-xl p-3 sm:p-4 border border-gray-100 shadow-sm">
+            <div className="flex items-center gap-2 mb-1">
+              <EyeIcon className="w-4 h-4 text-green-500" />
+              <span className="text-xs text-gray-500">Visits</span>
+            </div>
+            <p className="text-lg sm:text-xl font-bold text-gray-900">{visits.length}</p>
+          </div>
+          <div className="bg-white rounded-xl p-3 sm:p-4 border border-gray-100 shadow-sm">
+            <div className="flex items-center gap-2 mb-1">
+              <ClockIcon className="w-4 h-4 text-orange-500" />
+              <span className="text-xs text-gray-500">Follow-up</span>
+            </div>
+            <p className={`text-lg sm:text-xl font-bold ${getFollowUpStatus() !== null ? (getFollowUpStatus() < 0 ? 'text-red-600' : getFollowUpStatus() === 0 ? 'text-orange-600' : 'text-gray-900') : 'text-gray-400'}`}>
+              {getFollowUpStatus() !== null ? (getFollowUpStatus() < 0 ? `${Math.abs(getFollowUpStatus())}d overdue` : getFollowUpStatus() === 0 ? 'Today' : `${getFollowUpStatus()}d`) : 'N/A'}
+            </p>
           </div>
         </div>
 
@@ -265,25 +400,43 @@ const CustomerDetails = () => {
                 Contact Information
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                  <PhoneIcon className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
+                <a href={`tel:${customer.phone}`} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-purple-50 transition-colors group">
+                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                    <PhoneIcon className="w-5 h-5 text-green-600" />
+                  </div>
                   <div className="min-w-0">
                     <p className="text-xs text-gray-500">Phone</p>
                     <p className="text-gray-900 font-medium text-sm sm:text-base">{customer.phone}</p>
                   </div>
-                </div>
-                {customer.email && (
-                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                    <EnvelopeIcon className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
+                  <ArrowTopRightOnSquareIcon className="w-4 h-4 text-gray-400 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                </a>
+                {customer.email ? (
+                  <a href={`mailto:${customer.email}`} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-purple-50 transition-colors group">
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                      <EnvelopeIcon className="w-5 h-5 text-blue-600" />
+                    </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs text-gray-500">Email</p>
                       <p className="text-gray-900 font-medium truncate text-sm sm:text-base">{customer.email}</p>
+                    </div>
+                    <ArrowTopRightOnSquareIcon className="w-4 h-4 text-gray-400 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </a>
+                ) : (
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl opacity-50">
+                    <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center">
+                      <EnvelopeIcon className="w-5 h-5 text-gray-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-500">Email</p>
+                      <p className="text-gray-400 font-medium text-sm sm:text-base">Not provided</p>
                     </div>
                   </div>
                 )}
                 {customer.address && (
                   <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl sm:col-span-2">
-                    <MapPinIcon className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
+                    <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                      <MapPinIcon className="w-5 h-5 text-orange-600" />
+                    </div>
                     <div className="min-w-0">
                       <p className="text-xs text-gray-500">Address</p>
                       <p className="text-gray-900 font-medium text-sm sm:text-base">{customer.address}</p>
@@ -292,7 +445,9 @@ const CustomerDetails = () => {
                 )}
                 {(customer.customerZone || customer.customerThana) && (
                   <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl sm:col-span-2">
-                    <BuildingOfficeIcon className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
+                    <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                      <BuildingOfficeIcon className="w-5 h-5 text-indigo-600" />
+                    </div>
                     <div className="min-w-0">
                       <p className="text-xs text-gray-500">Zone / Thana</p>
                       <p className="text-gray-900 font-medium text-sm sm:text-base">
@@ -311,38 +466,46 @@ const CustomerDetails = () => {
                 Requirements & Preferences
               </h2>
               <div className="space-y-3 sm:space-y-4">
-                <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                  <div className="p-3 sm:p-4 bg-purple-50 rounded-xl">
-                    <p className="text-[10px] sm:text-xs text-purple-600 font-medium mb-1">Budget Range</p>
-                    <p className="text-sm sm:text-lg font-semibold text-gray-900">
-                      ৳{customer.budget?.min?.toLocaleString() || 0} - ৳{customer.budget?.max?.toLocaleString() || 0}
+                {/* Budget & Source Row */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+                  <div className="p-3 sm:p-4 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl border border-purple-100">
+                    <div className="flex items-center gap-2 mb-1">
+                      <CurrencyBangladeshiIcon className="w-4 h-4 text-purple-500" />
+                      <p className="text-[10px] sm:text-xs text-purple-600 font-medium">Budget Range</p>
+                    </div>
+                    <p className="text-sm sm:text-lg font-bold text-gray-900">
+                      ৳{customer.budget?.min?.toLocaleString() || 0}
                     </p>
+                    <p className="text-xs text-gray-500">to ৳{customer.budget?.max?.toLocaleString() || 0}</p>
                   </div>
-                  <div className="p-3 sm:p-4 bg-indigo-50 rounded-xl">
-                    <p className="text-[10px] sm:text-xs text-indigo-600 font-medium mb-1">Source</p>
-                    <p className="text-sm sm:text-lg font-semibold text-gray-900 capitalize">{customer.source || 'N/A'}</p>
+                  <div className="p-3 sm:p-4 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl border border-blue-100">
+                    <div className="flex items-center gap-2 mb-1">
+                      <SparklesIcon className="w-4 h-4 text-blue-500" />
+                      <p className="text-[10px] sm:text-xs text-blue-600 font-medium">Source</p>
+                    </div>
+                    <p className="text-sm sm:text-lg font-bold text-gray-900 capitalize">{customer.source || 'N/A'}</p>
                   </div>
+                  {customer.referredBy && (
+                    <div className="p-3 sm:p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-100 col-span-2 sm:col-span-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <UserGroupIcon className="w-4 h-4 text-green-500" />
+                        <p className="text-[10px] sm:text-xs text-green-600 font-medium">Referred By</p>
+                      </div>
+                      <p className="text-sm sm:text-lg font-bold text-gray-900">{customer.referredBy}</p>
+                    </div>
+                  )}
                 </div>
 
-                {customer.preferredLocation?.length > 0 && (
-                  <div className="p-3 sm:p-4 bg-gray-50 rounded-xl">
-                    <p className="text-[10px] sm:text-xs text-gray-500 font-medium mb-2">Preferred Locations</p>
-                    <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                      {(Array.isArray(customer.preferredLocation) ? customer.preferredLocation : [customer.preferredLocation]).map((loc, idx) => (
-                        <span key={idx} className="px-2 sm:px-3 py-0.5 sm:py-1 bg-white border border-gray-200 rounded-full text-xs sm:text-sm text-gray-700">
-                          {loc}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
+                {/* Property Types */}
                 {customer.propertyType?.length > 0 && (
                   <div className="p-3 sm:p-4 bg-gray-50 rounded-xl">
-                    <p className="text-[10px] sm:text-xs text-gray-500 font-medium mb-2">Property Types</p>
+                    <div className="flex items-center gap-2 mb-2">
+                      <BuildingOfficeIcon className="w-4 h-4 text-gray-500" />
+                      <p className="text-[10px] sm:text-xs text-gray-500 font-medium">Property Types Interested</p>
+                    </div>
                     <div className="flex flex-wrap gap-1.5 sm:gap-2">
                       {customer.propertyType.map((type, idx) => (
-                        <span key={idx} className="px-2 sm:px-3 py-0.5 sm:py-1 bg-purple-100 text-purple-700 rounded-full text-xs sm:text-sm capitalize">
+                        <span key={idx} className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-xs sm:text-sm capitalize font-medium">
                           {type}
                         </span>
                       ))}
@@ -350,33 +513,62 @@ const CustomerDetails = () => {
                   </div>
                 )}
 
-                {(customer.interestedProperties || customer.interestedPropertyCode) && (
+                {/* Preferred Locations */}
+                {customer.preferredLocation?.length > 0 && (
                   <div className="p-3 sm:p-4 bg-gray-50 rounded-xl">
-                    <p className="text-[10px] sm:text-xs text-gray-500 font-medium mb-2">Interested Properties</p>
-                    <div className="flex flex-wrap items-start gap-2 sm:gap-3">
-                      {customer.interestedPropertyCode && (
-                        <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-purple-100 text-purple-700 rounded-lg text-xs sm:text-sm font-medium">
-                          Code: {customer.interestedPropertyCode}
+                    <div className="flex items-center gap-2 mb-2">
+                      <MapPinIcon className="w-4 h-4 text-gray-500" />
+                      <p className="text-[10px] sm:text-xs text-gray-500 font-medium">Preferred Locations</p>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                      {(Array.isArray(customer.preferredLocation) ? customer.preferredLocation : [customer.preferredLocation]).map((loc, idx) => (
+                        <span key={idx} className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs sm:text-sm text-gray-700 shadow-sm">
+                          📍 {loc}
                         </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Interested Properties */}
+                {(customer.interestedProperties || customer.interestedPropertyCode) && (
+                  <div className="p-3 sm:p-4 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl border border-yellow-100">
+                    <div className="flex items-center gap-2 mb-2">
+                      <StarIcon className="w-4 h-4 text-yellow-600" />
+                      <p className="text-[10px] sm:text-xs text-yellow-700 font-medium">Interested Properties</p>
+                    </div>
+                    <div className="space-y-2">
+                      {customer.interestedPropertyCode && (
+                        <div className="flex items-center gap-2">
+                          <span className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs sm:text-sm font-bold">
+                            {customer.interestedPropertyCode}
+                          </span>
+                          <span className="text-xs text-gray-500">Property Code</span>
+                        </div>
                       )}
                       {customer.interestedProperties && (
-                        <p className="text-gray-700 whitespace-pre-wrap flex-1 text-xs sm:text-sm">{customer.interestedProperties}</p>
+                        <p className="text-gray-700 whitespace-pre-wrap text-xs sm:text-sm bg-white/50 p-2 rounded-lg">{customer.interestedProperties}</p>
                       )}
                     </div>
                   </div>
                 )}
 
+                {/* Additional Requirements */}
                 {customer.requirements && (
                   <div className="p-3 sm:p-4 bg-gray-50 rounded-xl">
-                    <p className="text-[10px] sm:text-xs text-gray-500 font-medium mb-2">Additional Requirements</p>
-                    <p className="text-gray-700 whitespace-pre-wrap text-xs sm:text-sm">{customer.requirements}</p>
+                    <div className="flex items-center gap-2 mb-2">
+                      <DocumentTextIcon className="w-4 h-4 text-gray-500" />
+                      <p className="text-[10px] sm:text-xs text-gray-500 font-medium">Additional Requirements</p>
+                    </div>
+                    <p className="text-gray-700 whitespace-pre-wrap text-xs sm:text-sm leading-relaxed">{customer.requirements}</p>
                   </div>
                 )}
 
-                {customer.referredBy && (
-                  <div className="p-3 sm:p-4 bg-green-50 rounded-xl">
-                    <p className="text-[10px] sm:text-xs text-green-600 font-medium mb-1">Referred By</p>
-                    <p className="text-gray-900 font-medium text-sm sm:text-base">{customer.referredBy}</p>
+                {/* No requirements message */}
+                {!customer.propertyType?.length && !customer.preferredLocation?.length && !customer.interestedProperties && !customer.interestedPropertyCode && !customer.requirements && (
+                  <div className="text-center py-6 text-gray-400">
+                    <InformationCircleIcon className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No specific requirements recorded yet</p>
                   </div>
                 )}
               </div>
@@ -672,67 +864,136 @@ const CustomerDetails = () => {
           {/* Right Column - Sidebar Info */}
           <div className="space-y-4 sm:space-y-6">
             {/* Next Follow-up */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
+            <div className={`bg-white rounded-2xl shadow-sm border p-4 sm:p-6 ${
+              customer.nextFollowUpDate && new Date(customer.nextFollowUpDate) <= new Date() 
+                ? 'border-red-200 bg-red-50/30' 
+                : 'border-gray-100'
+            }`}>
               <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
-                <CalendarDaysIcon className="w-5 h-5 sm:w-6 sm:h-6 text-orange-500" />
+                <CalendarDaysIcon className={`w-5 h-5 sm:w-6 sm:h-6 ${
+                  customer.nextFollowUpDate && new Date(customer.nextFollowUpDate) <= new Date() 
+                    ? 'text-red-500' 
+                    : 'text-orange-500'
+                }`} />
                 Next Follow-up
               </h2>
               {customer.nextFollowUpDate ? (
-                <div className={`p-3 sm:p-4 rounded-xl ${new Date(customer.nextFollowUpDate) <= new Date() ? 'bg-red-50 border border-red-200' : 'bg-orange-50 border border-orange-200'}`}>
-                  <p className={`text-sm sm:text-lg font-semibold ${new Date(customer.nextFollowUpDate) <= new Date() ? 'text-red-700' : 'text-orange-700'}`}>
+                <div className={`p-3 sm:p-4 rounded-xl ${
+                  new Date(customer.nextFollowUpDate) <= new Date() 
+                    ? 'bg-red-100 border border-red-200' 
+                    : 'bg-orange-50 border border-orange-200'
+                }`}>
+                  <p className={`text-sm sm:text-lg font-bold ${
+                    new Date(customer.nextFollowUpDate) <= new Date() 
+                      ? 'text-red-700' 
+                      : 'text-orange-700'
+                  }`}>
                     {formatDateWithWeekday(customer.nextFollowUpDate)}
                   </p>
-                  {new Date(customer.nextFollowUpDate) <= new Date() && (
-                    <p className="text-xs sm:text-sm text-red-600 mt-1 font-medium">⚠️ Follow-up is overdue!</p>
+                  {new Date(customer.nextFollowUpDate) <= new Date() ? (
+                    <p className="text-xs sm:text-sm text-red-600 mt-1 font-medium flex items-center gap-1">
+                      <BellAlertIcon className="w-4 h-4" />
+                      Follow-up is overdue!
+                    </p>
+                  ) : (
+                    <p className="text-xs text-orange-600 mt-1">
+                      {getFollowUpStatus() === 0 ? 'Today' : `In ${getFollowUpStatus()} days`}
+                    </p>
                   )}
                 </div>
               ) : (
-                <p className="text-gray-500 text-xs sm:text-sm">No follow-up scheduled</p>
+                <div className="text-center py-4">
+                  <CalendarDaysIcon className="w-10 h-10 text-gray-200 mx-auto mb-2" />
+                  <p className="text-gray-500 text-xs sm:text-sm">No follow-up scheduled</p>
+                </div>
               )}
             </div>
 
             {/* Assigned Agent */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Assigned Agent</h2>
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
+                <UserCircleIcon className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-500" />
+                Assigned Agent
+              </h2>
               {customer.assignedAgent ? (
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-white font-semibold text-sm sm:text-base">
+                <div className="flex items-center gap-3 p-3 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
+                  <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
+                    <span className="text-white font-bold text-lg">
                       {customer.assignedAgent.name?.charAt(0)?.toUpperCase()}
                     </span>
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="font-semibold text-gray-900 text-sm sm:text-base truncate">{customer.assignedAgent.name}</p>
-                    <p className="text-xs sm:text-sm text-gray-500 truncate">{customer.assignedAgent.email}</p>
+                    <p className="text-xs text-gray-500 truncate">{customer.assignedAgent.email}</p>
+                    {customer.assignedAgent.phone && (
+                      <p className="text-xs text-gray-500">{customer.assignedAgent.phone}</p>
+                    )}
                   </div>
                 </div>
               ) : (
-                <p className="text-gray-500 text-xs sm:text-sm">No agent assigned</p>
+                <div className="text-center py-4">
+                  <UserCircleIcon className="w-10 h-10 text-gray-200 mx-auto mb-2" />
+                  <p className="text-gray-500 text-xs sm:text-sm">No agent assigned</p>
+                </div>
               )}
             </div>
 
-            {/* Meta Info */}
+            {/* Quick Info Card */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Additional Info</h2>
-              <div className="space-y-2 sm:space-y-3">
-                <div>
-                  <p className="text-[10px] sm:text-xs text-gray-500">Added By</p>
-                  <p className="text-xs sm:text-sm text-gray-900">{customer.addedBy?.name || 'Unknown'}</p>
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
+                <InformationCircleIcon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-500" />
+                Customer Info
+              </h2>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                  <span className="text-xs text-gray-500">Added By</span>
+                  <span className="text-xs sm:text-sm font-medium text-gray-900">{customer.addedBy?.name || 'Unknown'}</span>
                 </div>
-                <div>
-                  <p className="text-[10px] sm:text-xs text-gray-500">Created</p>
-                  <p className="text-xs sm:text-sm text-gray-900">
-                    {formatDateLong(customer.createdAt)}
-                  </p>
+                <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                  <span className="text-xs text-gray-500">Created</span>
+                  <span className="text-xs sm:text-sm font-medium text-gray-900">{formatDate(customer.createdAt)}</span>
+                </div>
+                <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                  <span className="text-xs text-gray-500">Last Updated</span>
+                  <span className="text-xs sm:text-sm font-medium text-gray-900">{formatDate(customer.updatedAt)}</span>
                 </div>
                 {customer.lastContactDate && (
-                  <div>
-                    <p className="text-[10px] sm:text-xs text-gray-500">Last Contact</p>
-                    <p className="text-xs sm:text-sm text-gray-900">
-                      {formatDateLong(customer.lastContactDate)}
-                    </p>
+                  <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                    <span className="text-xs text-gray-500">Last Contact</span>
+                    <span className="text-xs sm:text-sm font-medium text-gray-900">{formatDate(customer.lastContactDate)}</span>
                   </div>
                 )}
+                {customer.agentClosed && customer.agentCloseReason && (
+                  <div className="py-2 bg-gray-50 rounded-lg p-2 mt-2">
+                    <span className="text-xs text-gray-500 block mb-1">Close Reason</span>
+                    <span className="text-xs sm:text-sm text-gray-700">{customer.agentCloseReason}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Status Timeline */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
+                <ChartBarIcon className="w-5 h-5 sm:w-6 sm:h-6 text-purple-500" />
+                Status Progress
+              </h2>
+              <div className="space-y-2">
+                {['new', 'interested', 'visit-possible', 'visit-done', 'sellable', 'short-process', 'long-process', 'closed'].map((status, index) => {
+                  const statusIndex = ['new', 'interested', 'visit-possible', 'visit-done', 'sellable', 'short-process', 'long-process', 'closed'].indexOf(customer.status);
+                  const isActive = index <= statusIndex;
+                  const isCurrent = status === customer.status;
+                  
+                  return (
+                    <div key={status} className="flex items-center gap-2">
+                      <div className={`w-3 h-3 rounded-full ${isCurrent ? 'bg-purple-600 ring-2 ring-purple-200' : isActive ? 'bg-green-500' : 'bg-gray-200'}`}></div>
+                      <span className={`text-xs capitalize ${isCurrent ? 'font-bold text-purple-700' : isActive ? 'text-green-700' : 'text-gray-400'}`}>
+                        {status.replace('-', ' ')}
+                      </span>
+                      {isCurrent && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">Current</span>}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>

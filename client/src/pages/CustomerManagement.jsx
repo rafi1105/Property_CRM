@@ -355,6 +355,17 @@ const CustomerManagement = () => {
     }
   };
 
+  // Quick status change handler
+  const handleQuickStatusChange = async (customerId, newStatus) => {
+    try {
+      await customerAPI.update(customerId, { status: newStatus });
+      toast.success('Status updated successfully!');
+      fetchCustomers();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update status');
+    }
+  };
+
   const openMoveModal = (customer) => {
     setSelectedCustomer(customer);
     setMoveData({
@@ -576,7 +587,7 @@ const CustomerManagement = () => {
         {/* All Filters in One Row - scrollable on mobile */}
         <div className="flex flex-nowrap gap-2 sm:gap-3 overflow-x-auto pb-2 -mx-3 px-3 sm:mx-0 sm:px-0">
           {/* Search */}
-          <div className="relative min-w-[180px] sm:w-64 flex-shrink-0">
+          <div className="relative min-w-[180px] sm:w-64 shrink-0">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
             <input
               type="text"
@@ -860,64 +871,86 @@ const CustomerManagement = () => {
                     </p>
                   )}
 
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                    {customer.assignedAgent && (
+                  <div className="flex flex-col gap-2 pt-4 border-t border-gray-100">
+                    {/* Status Dropdown */}
+                    {!customer.agentClosed && (
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
-                          <span className="text-xs font-medium text-gray-600">
-                            {customer.assignedAgent?.name?.charAt(0)}
-                          </span>
-                        </div>
-                        <span className="text-xs text-gray-500">{customer.assignedAgent?.name}</span>
+                        <span className="text-xs text-gray-500">Status:</span>
+                        <select
+                          value={customer.status}
+                          onChange={(e) => handleQuickStatusChange(customer._id, e.target.value)}
+                          className={`text-xs font-medium px-2 py-1 rounded-lg border-0 cursor-pointer focus:ring-2 focus:ring-purple-500 ${statusColors[customer.status] || statusColors.new}`}
+                        >
+                          <option value="new">New</option>
+                          <option value="interested">Interested</option>
+                          <option value="visit-possible">Visit Possible</option>
+                          <option value="visit-done">Visit Done</option>
+                          <option value="sellable">Sellable</option>
+                          <option value="short-process">Short Process</option>
+                          <option value="long-process">Long Process</option>
+                          <option value="closed">Closed</option>
+                        </select>
                       </div>
                     )}
-                    <div className="flex items-center gap-1 ml-auto flex-wrap">
-                      <button
-                        onClick={() => navigate(`/dashboard/customers/${customer._id}`)}
-                        className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      >
-                        View
-                      </button>
-                      {!customer.agentClosed && (
-                        <>
-                          <button
-                            onClick={() => openMoveModal(customer)}
-                            className="px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                          >
-                            Move
-                          </button>
-                          <button
-                            onClick={() => openAgentCloseModal(customer)}
-                            className="px-2 py-1 text-xs font-medium text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                          >
-                            Close
-                          </button>
-                        </>
+                    <div className="flex items-center justify-between">
+                      {customer.assignedAgent && (
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
+                            <span className="text-xs font-medium text-gray-600">
+                              {customer.assignedAgent?.name?.charAt(0)}
+                            </span>
+                          </div>
+                          <span className="text-xs text-gray-500">{customer.assignedAgent?.name}</span>
+                        </div>
                       )}
-                      {customer.agentClosed && user?.role !== 'agent' && (
+                      <div className="flex items-center gap-1 ml-auto flex-wrap">
                         <button
-                          onClick={() => handleReopenCustomer(customer._id)}
-                          className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          onClick={() => navigate(`/dashboard/customers/${customer._id}`)}
+                          className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                         >
-                          Reopen
+                          View
                         </button>
-                      )}
-                      {user?.role !== 'agent' && (
-                        <>
+                        {!customer.agentClosed && (
+                          <>
+                            <button
+                              onClick={() => openMoveModal(customer)}
+                              className="px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                            >
+                              Move
+                            </button>
+                            <button
+                              onClick={() => openAgentCloseModal(customer)}
+                              className="px-2 py-1 text-xs font-medium text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                            >
+                              Close
+                            </button>
+                          </>
+                        )}
+                        {customer.agentClosed && user?.role !== 'agent' && (
                           <button
-                            onClick={() => openEditModal(customer)}
-                            className="px-2 py-1 text-xs font-medium text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                            onClick={() => handleReopenCustomer(customer._id)}
+                            className="px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                           >
-                            Edit
+                            Reopen
                           </button>
-                          <button
-                            onClick={() => handleDelete(customer._id)}
-                            className="px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            Delete
-                          </button>
-                        </>
-                      )}
+                        )}
+                        {user?.role !== 'agent' && (
+                          <>
+                            <button
+                              onClick={() => openEditModal(customer)}
+                              className="px-2 py-1 text-xs font-medium text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDelete(customer._id)}
+                              className="px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -995,9 +1028,26 @@ const CustomerManagement = () => {
                           )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[customer.status] || statusColors.new}`}>
-                            {customer.status}
-                          </span>
+                          {!customer.agentClosed ? (
+                            <select
+                              value={customer.status}
+                              onChange={(e) => handleQuickStatusChange(customer._id, e.target.value)}
+                              className={`text-xs font-medium px-2 py-1 rounded-full border-0 cursor-pointer focus:ring-2 focus:ring-purple-500 ${statusColors[customer.status] || statusColors.new}`}
+                            >
+                              <option value="new">New</option>
+                              <option value="interested">Interested</option>
+                              <option value="visit-possible">Visit Possible</option>
+                              <option value="visit-done">Visit Done</option>
+                              <option value="sellable">Sellable</option>
+                              <option value="short-process">Short Process</option>
+                              <option value="long-process">Long Process</option>
+                              <option value="closed">Closed</option>
+                            </select>
+                          ) : (
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[customer.status] || statusColors.new}`}>
+                              {customer.status}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span className={`px-2 py-1 rounded-lg text-xs font-medium border ${priorityColors[customer.priority] || priorityColors.medium}`}>
