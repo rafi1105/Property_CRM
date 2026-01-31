@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { notificationAPI } from '../utils/api';
 import { toast } from 'react-hot-toast';
+import { formatDate } from '../utils/dateFormat';
 
 const NotificationBell = () => {
   const [showDropdown, setShowDropdown] = useState(false);
@@ -116,7 +117,7 @@ const NotificationBell = () => {
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
-    return notifDate.toLocaleDateString();
+    return formatDate(notifDate);
   };
 
   return (

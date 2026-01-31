@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { taskAPI, agentAPI, customerAPI, propertyAPI } from '../utils/api';
+import { formatDate } from '../utils/dateFormat';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../components/DashboardLayout';
 import { Dialog, Transition } from '@headlessui/react';
@@ -205,79 +206,85 @@ const TaskManager = () => {
   return (
     <DashboardLayout title="Tasks" subtitle="Manage your tasks and activities">
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <div className="bg-white rounded-2xl p-3 sm:p-5 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Total Tasks</p>
-              <p className="text-2xl font-bold text-gray-900">{taskStats.total}</p>
+              <p className="text-xs sm:text-sm text-gray-500">Total Tasks</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{taskStats.total}</p>
             </div>
-            <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-              <ClipboardDocumentListIcon className="w-5 h-5 text-purple-600" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+              <ClipboardDocumentListIcon className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <div className="bg-white rounded-2xl p-3 sm:p-5 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Pending</p>
-              <p className="text-2xl font-bold text-gray-900">{taskStats.pending}</p>
+              <p className="text-xs sm:text-sm text-gray-500">Pending</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{taskStats.pending}</p>
             </div>
-            <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
-              <ClockIcon className="w-5 h-5 text-yellow-600" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
+              <ClockIcon className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600" />
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <div className="bg-white rounded-2xl p-3 sm:p-5 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">In Progress</p>
-              <p className="text-2xl font-bold text-gray-900">{taskStats.inProgress}</p>
+              <p className="text-xs sm:text-sm text-gray-500">In Progress</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{taskStats.inProgress}</p>
             </div>
-            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-              <ExclamationTriangleIcon className="w-5 h-5 text-blue-600" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+              <ExclamationTriangleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <div className="bg-white rounded-2xl p-3 sm:p-5 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Completed</p>
-              <p className="text-2xl font-bold text-gray-900">{taskStats.completed}</p>
+              <p className="text-xs sm:text-sm text-gray-500">Completed</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{taskStats.completed}</p>
             </div>
-            <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-              <CheckCircleIcon className="w-5 h-5 text-green-600" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-xl flex items-center justify-center">
+              <CheckCircleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
             </div>
           </div>
         </div>
       </div>
 
       {/* Filters & Add Button */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col gap-3 mb-6">
+        {/* Filter buttons - scrollable on mobile */}
+        <div className="flex gap-2 overflow-x-auto pb-2 -mx-3 px-3 sm:mx-0 sm:px-0 sm:flex-wrap">
           {filters.map((filter) => (
             <button
               key={filter.key}
               onClick={() => setActiveFilter(filter.key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all ${
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl font-medium transition-all whitespace-nowrap text-xs sm:text-sm ${
                 activeFilter === filter.key
                   ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
                   : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
               }`}
             >
               <filter.icon className="w-4 h-4" />
-              {filter.label}
+              <span className="hidden sm:inline">{filter.label}</span>
+              <span className="sm:hidden">{filter.label.split(' ')[0]}</span>
             </button>
           ))}
         </div>
 
-        <button
-          onClick={() => { resetForm(); setShowAddModal(true); }}
-          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:shadow-purple-500/30 transition-all font-medium"
-        >
-          <PlusIcon className="w-5 h-5" />
-          Add Task
-        </button>
+        {/* Add button */}
+        <div className="flex justify-end">
+          <button
+            onClick={() => { resetForm(); setShowAddModal(true); }}
+            className="flex items-center gap-2 px-4 sm:px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:shadow-purple-500/30 transition-all font-medium text-sm"
+          >
+            <PlusIcon className="w-5 h-5" />
+            <span className="hidden sm:inline">Add Task</span>
+            <span className="sm:hidden">Add</span>
+          </button>
+        </div>
       </div>
 
       {/* Tasks List */}
@@ -286,71 +293,66 @@ const TaskManager = () => {
           <div className="w-10 h-10 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {tasks.map((task) => (
-            <div key={task._id} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-start gap-3 mb-2">
-                    <button
-                      onClick={() => handleStatusChange(task._id, task.status === 'completed' ? 'pending' : 'completed')}
-                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${
-                        task.status === 'completed'
-                          ? 'bg-green-500 border-green-500'
-                          : 'border-gray-300 hover:border-purple-500'
-                      }`}
-                    >
-                      {task.status === 'completed' && <CheckCircleIcon className="w-4 h-4 text-white" />}
-                    </button>
-                    <div>
-                      <h3 className={`font-semibold text-gray-900 ${task.status === 'completed' ? 'line-through text-gray-400' : ''}`}>
-                        {task.title}
-                      </h3>
-                      {task.description && (
-                        <p className="text-sm text-gray-500 mt-1 line-clamp-2">{task.description}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-3 ml-9">
-                    <span className={`px-2 py-1 rounded-lg text-xs font-medium border ${priorityColors[task.priority]}`}>
-                      <FlagIcon className="w-3 h-3 inline mr-1" />
-                      {task.priority}
-                    </span>
-                    <span className={`px-2 py-1 rounded-lg text-xs font-medium ${statusColors[task.status]}`}>
-                      {task.status?.replace('_', ' ')}
-                    </span>
-                    {task.dueDate && (
-                      <span className="flex items-center gap-1 text-xs text-gray-500">
-                        <CalendarDaysIcon className="w-3 h-3" />
-                        {new Date(task.dueDate).toLocaleDateString()}
-                      </span>
-                    )}
-                    {task.assignedTo && (
-                      <span className="flex items-center gap-1 text-xs text-gray-500">
-                        <UserIcon className="w-3 h-3" />
-                        {task.assignedTo?.name}
-                      </span>
-                    )}
-                    {task.customer && (
-                      <span className="flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">
-                        {task.customer?.name}
-                      </span>
-                    )}
-                    {task.property && (
-                      <span className="flex items-center gap-1 text-xs text-gray-500 bg-purple-50 px-2 py-1 rounded-lg">
-                        <BuildingOfficeIcon className="w-3 h-3" />
-                        {task.property?.title}
-                      </span>
+            <div key={task._id} className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+              <div className="flex flex-col gap-3 sm:gap-4">
+                {/* Task Header */}
+                <div className="flex items-start gap-3">
+                  <button
+                    onClick={() => handleStatusChange(task._id, task.status === 'completed' ? 'pending' : 'completed')}
+                    className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${
+                      task.status === 'completed'
+                        ? 'bg-green-500 border-green-500'
+                        : 'border-gray-300 hover:border-purple-500'
+                    }`}
+                  >
+                    {task.status === 'completed' && <CheckCircleIcon className="w-3 h-3 sm:w-4 sm:h-4 text-white" />}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <h3 className={`font-semibold text-gray-900 text-sm sm:text-base ${task.status === 'completed' ? 'line-through text-gray-400' : ''}`}>
+                      {task.title}
+                    </h3>
+                    {task.description && (
+                      <p className="text-xs sm:text-sm text-gray-500 mt-1 line-clamp-2">{task.description}</p>
                     )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 ml-9 md:ml-0">
+                {/* Task Meta Info */}
+                <div className="flex flex-wrap items-center gap-2 ml-8 sm:ml-9">
+                  <span className={`px-2 py-1 rounded-lg text-xs font-medium border ${priorityColors[task.priority]}`}>
+                    <FlagIcon className="w-3 h-3 inline mr-1" />
+                    {task.priority}
+                  </span>
+                  <span className={`px-2 py-1 rounded-lg text-xs font-medium ${statusColors[task.status]}`}>
+                    {task.status?.replace('_', ' ')}
+                  </span>
+                  {task.dueDate && (
+                    <span className="flex items-center gap-1 text-xs text-gray-500">
+                      <CalendarDaysIcon className="w-3 h-3" />
+                      {formatDate(task.dueDate)}
+                    </span>
+                  )}
+                  {task.assignedTo && (
+                    <span className="hidden sm:flex items-center gap-1 text-xs text-gray-500">
+                      <UserIcon className="w-3 h-3" />
+                      {task.assignedTo?.name}
+                    </span>
+                  )}
+                  {task.customer && (
+                    <span className="hidden sm:flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">
+                      {task.customer?.name}
+                    </span>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 ml-8 sm:ml-9 pt-2 border-t border-gray-100 sm:border-0 sm:pt-0">
                   <select
                     value={task.status}
                     onChange={(e) => handleStatusChange(task._id, e.target.value)}
-                    className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 sm:py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs sm:text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
                     style={{ color: '#111827' }}
                   >
                     <option value="pending">Pending</option>
@@ -360,13 +362,13 @@ const TaskManager = () => {
                   </select>
                   <button
                     onClick={() => openEditModal(task)}
-                    className="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                    className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-purple-600 hover:bg-purple-50 rounded-lg transition-colors font-medium"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => handleDelete(task._id)}
-                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    className="px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"
                   >
                     Delete
                   </button>

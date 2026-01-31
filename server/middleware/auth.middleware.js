@@ -20,16 +20,25 @@ export const authenticate = async (req, res, next) => {
 
     // Handle temporary tokens for admin login bypass
     if (token.startsWith('temp-admin-token-')) {
-      req.user = {
-        _id: 'temp-admin-id',
-        name: 'Super Admin',
-        email: 'superadmin@realestate.com',
-        role: 'super_admin',
-        phone: '+8801234567890',
-        address: 'Dhaka, Bangladesh',
-        isActive: true,
-        authProvider: 'email'
-      };
+      // Find or create the actual super admin user in the database
+      let adminUser = await User.findOne({ email: 'superadmin@realestate.com' });
+      
+      if (!adminUser) {
+        // Create the super admin user if it doesn't exist
+        adminUser = await User.create({
+          name: 'Super Admin',
+          email: 'superadmin@realestate.com',
+          password: 'admin123', // Will be hashed by the model
+          role: 'super_admin',
+          phone: '+8801234567890',
+          address: 'Dhaka, Bangladesh',
+          isActive: true,
+          authProvider: 'email'
+        });
+        console.log('Created super admin user:', adminUser._id);
+      }
+      
+      req.user = adminUser;
       return next();
     }
 

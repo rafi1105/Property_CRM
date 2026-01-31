@@ -25,11 +25,24 @@ export const createCustomer = async (req, res) => {
 
     console.log('Creating customer with data:', req.body);
 
+    // Valid enum values
+    const validPropertyTypes = ['land', 'building', 'house', 'apartment', 'commercial', 'villa', 'penthouse'];
+
     // Clean up empty string fields that should be ObjectId or undefined
     const customerData = { ...req.body, addedBy: req.user._id };
     if (customerData.assignedAgent === '') delete customerData.assignedAgent;
     if (customerData.customerZone === '') delete customerData.customerZone;
     if (customerData.customerThana === '') delete customerData.customerThana;
+    if (customerData.source === '') delete customerData.source;
+    if (customerData.status === '') delete customerData.status;
+    if (customerData.priority === '') delete customerData.priority;
+    
+    // Filter propertyType to only valid values
+    if (customerData.propertyType) {
+      customerData.propertyType = customerData.propertyType.filter(
+        type => validPropertyTypes.includes(type)
+      );
+    }
 
     const customer = await Customer.create(customerData);
 
@@ -86,14 +99,25 @@ export const getAllCustomers = async (req, res) => {
       sort = '-createdAt'
     } = req.query;
 
+    console.log('getAllCustomers called with:', { page, limit, status, priority, search, sort });
+
     // Build query
     const query = {};
 
     if (status) query.status = status;
     if (priority) query.priority = priority;
+    
+    // Use regex search instead of text search for better compatibility
     if (search) {
-      query.$text = { $search: search };
+      const searchRegex = new RegExp(search, 'i');
+      query.$or = [
+        { name: searchRegex },
+        { email: searchRegex },
+        { phone: searchRegex }
+      ];
     }
+
+    console.log('Query:', JSON.stringify(query));
 
     // Execute query
     const customers = await Customer.find(query)
@@ -102,18 +126,20 @@ export const getAllCustomers = async (req, res) => {
       .populate('closedBy', 'name email')
       .populate('notes.addedBy', 'name')
       .sort(sort)
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
       .lean()
       .exec();
 
     const count = await Customer.countDocuments(query);
 
+    console.log(`Found ${customers.length} customers out of ${count} total`);
+
     res.json({
       success: true,
       customers,
-      totalPages: Math.ceil(count / limit),
-      currentPage: page,
+      totalPages: Math.ceil(count / parseInt(limit)),
+      currentPage: parseInt(page),
       total: count
     });
   } catch (error) {
@@ -198,11 +224,24 @@ export const updateCustomer = async (req, res) => {
     const oldStatus = customer.leadStatus;
     const newStatus = req.body.leadStatus;
 
+    // Valid enum values
+    const validPropertyTypes = ['land', 'building', 'house', 'apartment', 'commercial', 'villa', 'penthouse'];
+
     // Clean up empty string fields that should be ObjectId or undefined
     const updateData = { ...req.body };
     if (updateData.assignedAgent === '') delete updateData.assignedAgent;
     if (updateData.customerZone === '') delete updateData.customerZone;
     if (updateData.customerThana === '') delete updateData.customerThana;
+    if (updateData.source === '') delete updateData.source;
+    if (updateData.status === '') delete updateData.status;
+    if (updateData.priority === '') delete updateData.priority;
+    
+    // Filter propertyType to only valid values
+    if (updateData.propertyType) {
+      updateData.propertyType = updateData.propertyType.filter(
+        type => validPropertyTypes.includes(type)
+      );
+    }
 
     const updatedCustomer = await Customer.findByIdAndUpdate(
       req.params.id,
@@ -235,6 +274,7 @@ export const updateCustomer = async (req, res) => {
       customer: updatedCustomer
     });
   } catch (error) {
+    console.error('Error updating customer:', error);
     res.status(500).json({
       success: false,
       message: 'Error updating customer',
@@ -440,6 +480,8 @@ export const editNote = async (req, res) => {
     const { note, nextFollowUpDate } = req.body;
     const { id: customerId, noteId } = req.params;
 
+    console.log('Edit note request:', { customerId, noteId, note });
+
     const customer = await Customer.findById(customerId);
     if (!customer) {
       return res.status(404).json({
@@ -448,16 +490,22 @@ export const editNote = async (req, res) => {
       });
     }
 
-    const noteToEdit = customer.notes.id(noteId);
-    if (!noteToEdit) {
+    // Find note by ID - handle both ObjectId and string comparison
+    const noteIndex = customer.notes.findIndex(
+      n => n._id.toString() === noteId
+    );
+    
+    if (noteIndex === -1) {
       return res.status(404).json({
         success: false,
         message: 'Note not found'
       });
     }
 
+    const noteToEdit = customer.notes[noteIndex];
+
     // Check permission - only note creator or admin+ can edit
-    if (req.user.role === 'agent' && noteToEdit.addedBy.toString() !== req.user._id.toString()) {
+    if (req.user.role === 'agent' && noteToEdit.addedBy && noteToEdit.addedBy.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to edit this note'
@@ -465,11 +513,11 @@ export const editNote = async (req, res) => {
     }
 
     // Update note
-    noteToEdit.note = note;
-    noteToEdit.editedAt = new Date();
+    customer.notes[noteIndex].note = note;
+    customer.notes[noteIndex].editedAt = new Date();
     
     if (nextFollowUpDate) {
-      noteToEdit.nextFollowUpDate = new Date(nextFollowUpDate);
+      customer.notes[noteIndex].nextFollowUpDate = new Date(nextFollowUpDate);
       customer.nextFollowUpDate = new Date(nextFollowUpDate);
     }
 
@@ -488,6 +536,7 @@ export const editNote = async (req, res) => {
       customer
     });
   } catch (error) {
+    console.error('Error editing note:', error);
     res.status(500).json({
       success: false,
       message: 'Error editing note',
@@ -503,6 +552,8 @@ export const deleteNote = async (req, res) => {
   try {
     const { id: customerId, noteId } = req.params;
 
+    console.log('Delete note request:', { customerId, noteId });
+
     const customer = await Customer.findById(customerId);
     if (!customer) {
       return res.status(404).json({
@@ -511,24 +562,30 @@ export const deleteNote = async (req, res) => {
       });
     }
 
-    const noteToDelete = customer.notes.id(noteId);
-    if (!noteToDelete) {
+    // Find note by ID - handle both ObjectId and string comparison
+    const noteIndex = customer.notes.findIndex(
+      note => note._id.toString() === noteId
+    );
+    
+    if (noteIndex === -1) {
       return res.status(404).json({
         success: false,
         message: 'Note not found'
       });
     }
 
+    const noteToDelete = customer.notes[noteIndex];
+
     // Check permission - only note creator or admin+ can delete
-    if (req.user.role === 'agent' && noteToDelete.addedBy.toString() !== req.user._id.toString()) {
+    if (req.user.role === 'agent' && noteToDelete.addedBy && noteToDelete.addedBy.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to delete this note'
       });
     }
 
-    // Remove note
-    customer.notes.pull(noteId);
+    // Remove note using splice
+    customer.notes.splice(noteIndex, 1);
     await customer.save();
     
     // Populate the customer to get full details
@@ -544,6 +601,7 @@ export const deleteNote = async (req, res) => {
       customer
     });
   } catch (error) {
+    console.error('Error deleting note:', error);
     res.status(500).json({
       success: false,
       message: 'Error deleting note',
@@ -557,30 +615,49 @@ export const deleteNote = async (req, res) => {
 // @access  Agent/Admin/Super Admin
 export const getMyCustomers = async (req, res) => {
   try {
+    const { sourceFilter } = req.query; // 'all', 'assigned', 'self-added', 'agent-added'
     let customers;
+    let query = {};
 
     if (req.user.role === 'agent') {
-      // Agent sees only assigned customers or customers they added
-      customers = await Customer.find({
-        $or: [
-          { assignedAgent: req.user._id },
-          { addedBy: req.user._id }
-        ]
-      })
-        .populate('addedBy', 'name email')
-        .populate('assignedAgent', 'name email')
-        .populate('closedBy', 'name email')
-        .populate('notes.addedBy', 'name')
-        .sort('-createdAt');
+      // Agent filtering options
+      if (sourceFilter === 'assigned') {
+        // Only customers assigned to this agent (not added by them)
+        query = {
+          assignedAgent: req.user._id,
+          addedBy: { $ne: req.user._id }
+        };
+      } else if (sourceFilter === 'self-added') {
+        // Only customers added by this agent
+        query = { addedBy: req.user._id };
+      } else {
+        // Default: All customers (assigned + self-added)
+        query = {
+          $or: [
+            { assignedAgent: req.user._id },
+            { addedBy: req.user._id }
+          ]
+        };
+      }
     } else {
-      // Admin/Super Admin see all customers
-      customers = await Customer.find()
-        .populate('addedBy', 'name email')
-        .populate('assignedAgent', 'name email')
-        .populate('closedBy', 'name email')
-        .populate('notes.addedBy', 'name')
-        .sort('-createdAt');
+      // Admin/Super Admin filtering options
+      if (sourceFilter === 'agent-added') {
+        // Only customers added by agents (not super_admin)
+        const agentUsers = await User.find({ role: 'agent' }).select('_id');
+        const agentIds = agentUsers.map(a => a._id);
+        query = { addedBy: { $in: agentIds } };
+      } else {
+        // Default: All customers
+        query = {};
+      }
     }
+
+    customers = await Customer.find(query)
+      .populate('addedBy', 'name email role')
+      .populate('assignedAgent', 'name email')
+      .populate('closedBy', 'name email')
+      .populate('notes.addedBy', 'name')
+      .sort('-createdAt');
 
     res.json({
       success: true,
@@ -588,6 +665,7 @@ export const getMyCustomers = async (req, res) => {
       count: customers.length
     });
   } catch (error) {
+    console.error('Error in getMyCustomers:', error);
     res.status(500).json({
       success: false,
       message: 'Error fetching customers',

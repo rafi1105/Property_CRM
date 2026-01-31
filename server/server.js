@@ -4,9 +4,22 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import jwt from 'jsonwebtoken';
 
 // Load environment variables
 dotenv.config();
+
+// Lazy-load models to avoid issues with serverless cold starts
+let User = null;
+const getUser = async () => {
+  if (!User) {
+    User = (await import('./models/User.model.js')).default;
+  }
+  return User;
+};
+
+// Import token generator
+import { generateToken } from './utils/jwt.utils.js';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -213,48 +226,96 @@ app.post('/api/test-login', async (req, res) => {
   }
 });
 
-// Temporary working admin login
+// Admin/Agent login endpoint - works with database users
 app.post('/api/auth/temp-admin-login', async (req, res) => {
   try {
+    const User = await getUser();
     const { email, password, role } = req.body;
     
-    // Accept the seeded admin accounts with simplified authentication
-    if ((email === 'superadmin@realestate.com' && password === 'admin123') ||
-        (email === 'rafikabir05.rk@gmail.com' && password === 'Rafi1234@')) {
-      res.json({
-        success: true,
-        token: 'temp-admin-token-' + Date.now(),
-        user: {
-          id: 'temp-admin-id',
-          name: email === 'superadmin@realestate.com' ? 'Super Admin' : 'Rafi Kabir',
-          email: email,
-          role: 'super_admin',
-          phone: '+8801234567890',
-          address: 'Dhaka, Bangladesh',
-          isActive: true,
-          authProvider: 'email'
-        }
-      });
-    } else {
-      res.status(401).json({
+    console.log('Admin login attempt:', { email, role });
+    
+    if (!email || !password) {
+      return res.status(400).json({
         success: false,
-        message: 'Invalid credentials'
+        message: 'Email and password are required'
       });
     }
+
+    // Find user by email (with password field)
+    const user = await User.findOne({ email }).select('+password');
+    
+    if (!user) {
+      console.log('User not found:', email);
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password'
+      });
+    }
+
+    // Check if account is active
+    if (!user.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account has been deactivated. Please contact administrator.'
+      });
+    }
+
+    // Check if user has appropriate role (agent, admin, or super_admin)
+    if (!['agent', 'admin', 'super_admin'].includes(user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. This login is for staff members only.'
+      });
+    }
+
+    // Verify password
+    const isPasswordMatch = await user.comparePassword(password);
+    if (!isPasswordMatch) {
+      console.log('Password mismatch for:', email);
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password'
+      });
+    }
+
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
+
+    // Generate JWT token
+    const token = generateToken(user._id);
+
+    console.log('Login successful for:', email);
+    
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        address: user.address,
+        isActive: user.isActive,
+        authProvider: user.authProvider
+      }
+    });
   } catch (error) {
+    console.error('Admin login error:', error);
     res.status(500).json({
       success: false,
-      message: 'Temporary admin login failed',
-      error: error.message
+      message: 'Login failed. Please try again later.'
     });
   }
 });
 
-// Temporary get current user endpoint
+// Get current user endpoint - works with JWT tokens
 app.get('/api/auth/me', async (req, res) => {
   try {
+    const User = await getUser();
     const authHeader = req.headers.authorization;
-    if (!authHeader) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({
         success: false,
         message: 'Not authorized, no token provided'
@@ -263,31 +324,71 @@ app.get('/api/auth/me', async (req, res) => {
 
     const token = authHeader.split(' ')[1];
     
+    // Handle legacy temp-admin tokens (for backward compatibility)
     if (token && token.startsWith('temp-admin-token-')) {
+      const adminUser = await User.findOne({ email: 'superadmin@realestate.com' });
+      if (adminUser) {
+        return res.json({
+          success: true,
+          user: {
+            id: adminUser._id,
+            name: adminUser.name,
+            email: adminUser.email,
+            role: adminUser.role,
+            phone: adminUser.phone,
+            address: adminUser.address,
+            isActive: adminUser.isActive,
+            authProvider: adminUser.authProvider
+          }
+        });
+      }
+    }
+    
+    // Verify JWT token
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findById(decoded.id).select('-password');
+      
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+      
+      if (!user.isActive) {
+        return res.status(403).json({
+          success: false,
+          message: 'Your account has been deactivated'
+        });
+      }
+      
       res.json({
         success: true,
         user: {
-          id: 'temp-admin-id',
-          name: 'Super Admin',
-          email: 'superadmin@realestate.com',
-          role: 'super_admin',
-          phone: '+8801234567890',
-          address: 'Dhaka, Bangladesh',
-          isActive: true,
-          authProvider: 'email'
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          phone: user.phone,
+          address: user.address,
+          isActive: user.isActive,
+          authProvider: user.authProvider,
+          photoURL: user.photoURL
         }
       });
-    } else {
-      res.status(401).json({
+    } catch (jwtError) {
+      return res.status(401).json({
         success: false,
-        message: 'Invalid token'
+        message: 'Invalid or expired token. Please login again.'
       });
     }
   } catch (error) {
+    console.error('Get current user error:', error);
     res.status(500).json({
       success: false,
       message: 'Error getting current user',
-      error: error.message
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -326,7 +427,7 @@ app.get('/api/health', async (req, res) => {
 // Test endpoint for Firebase auth debugging
 app.post('/api/test-firebase', async (req, res) => {
   try {
-    const User = (await import('./models/User.model.js')).default;
+    const User = await getUser();
     const { verifyFirebaseToken } = await import('./config/firebase.config.js');
     
     res.json({

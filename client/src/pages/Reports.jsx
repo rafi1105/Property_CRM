@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { reportAPI, authAPI } from '../utils/api';
+import { formatDateWithWeekday } from '../utils/dateFormat';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../components/DashboardLayout';
 import { Dialog, Transition } from '@headlessui/react';
@@ -55,7 +56,7 @@ const Reports = () => {
       setLoading(true);
       
       // Fetch reports based on role
-      if (user?.role === 'super_admin') {
+      if (user?.role === 'super_admin' || user?.role === 'admin') {
         const [reportsRes, statsRes, agentsRes] = await Promise.all([
           reportAPI.getAll({ limit: 100 }),
           reportAPI.getStats(),
@@ -65,10 +66,6 @@ const Reports = () => {
         setStats(statsRes.data.stats || null);
         const agentUsers = (agentsRes.data.users || []).filter(u => u.role === 'agent');
         setAgents(agentUsers);
-      } else if (user?.role === 'admin' && user?.assignedZone) {
-        // Zonal admin/agent
-        const reportsRes = await reportAPI.getZoneReports({ limit: 100 });
-        setReports(reportsRes.data.reports || []);
       } else {
         // Regular agent - get their own reports
         const [myReportsRes, todayRes] = await Promise.all([
@@ -166,14 +163,7 @@ const Reports = () => {
     }));
   };
 
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
+  // Using formatDateWithWeekday from utils/dateFormat.js for dd/mm/yyyy format
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -203,52 +193,52 @@ const Reports = () => {
   return (
     <DashboardLayout 
       title="Daily Reports" 
-      subtitle={user?.role === 'super_admin' ? 'View all agent daily reports' : 'Submit your daily work report'}
+      subtitle={user?.role === 'super_admin' || user?.role === 'admin' ? 'View all agent daily reports' : 'Submit your daily work report'}
     >
-      {/* Stats Cards - Super Admin Only */}
-      {user?.role === 'super_admin' && stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-purple-100 rounded-xl">
-                <UserCircleIcon className="w-6 h-6 text-purple-600" />
+      {/* Stats Cards - Super Admin and Admin Only */}
+      {(user?.role === 'super_admin' || user?.role === 'admin') && stats && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
+          <div className="bg-white rounded-2xl p-3 sm:p-5 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-2 sm:p-3 bg-purple-100 rounded-xl">
+                <UserCircleIcon className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">Total Agents</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.totalAgents}</p>
+                <p className="text-xs sm:text-sm text-gray-500">Total Agents</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.totalAgents}</p>
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-green-100 rounded-xl">
-                <CheckCircleIcon className="w-6 h-6 text-green-600" />
+          <div className="bg-white rounded-2xl p-3 sm:p-5 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-2 sm:p-3 bg-green-100 rounded-xl">
+                <CheckCircleIcon className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">Submitted Today</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.reportsSubmittedToday}</p>
+                <p className="text-xs sm:text-sm text-gray-500">Today</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.reportsSubmittedToday}</p>
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-orange-100 rounded-xl">
-                <ClockIcon className="w-6 h-6 text-orange-600" />
+          <div className="bg-white rounded-2xl p-3 sm:p-5 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-2 sm:p-3 bg-orange-100 rounded-xl">
+                <ClockIcon className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">Pending Submissions</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.pendingSubmissions}</p>
+                <p className="text-xs sm:text-sm text-gray-500">Pending</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.pendingSubmissions}</p>
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-blue-100 rounded-xl">
-                <DocumentTextIcon className="w-6 h-6 text-blue-600" />
+          <div className="bg-white rounded-2xl p-3 sm:p-5 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-2 sm:p-3 bg-blue-100 rounded-xl">
+                <DocumentTextIcon className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
               </div>
               <div>
-                <p className="text-sm text-gray-500">Pending Reviews</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.pendingReviews}</p>
+                <p className="text-xs sm:text-sm text-gray-500">Reviews</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.pendingReviews}</p>
               </div>
             </div>
           </div>
@@ -256,19 +246,19 @@ const Reports = () => {
       )}
 
       {/* Header Actions */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+      <div className="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-6">
         {/* Agent: Submit Report Button */}
         {user?.role === 'agent' && (
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
             <button
               onClick={() => setShowSubmitModal(true)}
-              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:shadow-purple-500/30 transition-all font-medium"
+              className="flex items-center gap-2 px-4 sm:px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:shadow-purple-500/30 transition-all font-medium text-sm sm:text-base"
             >
               <PlusIcon className="w-5 h-5" />
-              {todayReport ? 'Update Today\'s Report' : 'Submit Daily Report'}
+              {todayReport ? 'Update Report' : 'Submit Report'}
             </button>
             {todayReport && (
-              <span className="text-sm text-green-600 flex items-center gap-1">
+              <span className="text-xs sm:text-sm text-green-600 flex items-center gap-1">
                 <CheckCircleIcon className="w-4 h-4" />
                 Today's report submitted
               </span>
@@ -276,23 +266,23 @@ const Reports = () => {
           </div>
         )}
 
-        {/* Super Admin: Filters */}
-        {user?.role === 'super_admin' && (
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+        {/* Super Admin and Admin: Filters */}
+        {(user?.role === 'super_admin' || user?.role === 'admin') && (
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="relative flex-1 min-w-[180px] sm:flex-none sm:w-64">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search reports..."
+                placeholder="Search..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 w-64"
+                className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 text-xs sm:text-sm"
               />
             </div>
             <select
               value={filterAgent}
               onChange={(e) => setFilterAgent(e.target.value)}
-              className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700"
+              className="px-3 sm:px-4 py-2 sm:py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700 text-xs sm:text-sm"
             >
               <option value="all">All Agents</option>
               {agents.map(agent => (
@@ -303,7 +293,7 @@ const Reports = () => {
               type="date"
               value={filterDate}
               onChange={(e) => setFilterDate(e.target.value)}
-              className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700"
+              className="px-3 sm:px-4 py-2 sm:py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700 text-xs sm:text-sm"
             />
             {(searchTerm || filterAgent !== 'all' || filterDate) && (
               <button
@@ -365,7 +355,7 @@ const Reports = () => {
                     {/* Date */}
                     <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
                       <CalendarDaysIcon className="w-4 h-4" />
-                      <span>{formatDate(report.reportDate)}</span>
+                      <span>{formatDateWithWeekday(report.reportDate)}</span>
                     </div>
                     
                     {/* Content Preview */}
@@ -458,7 +448,7 @@ const Reports = () => {
                       <CalendarDaysIcon className="w-6 h-6 text-purple-600" />
                       <div>
                         <p className="text-sm text-purple-600 font-medium">Report Date</p>
-                        <p className="text-lg font-semibold text-purple-900">{formatDate(new Date())}</p>
+                        <p className="text-lg font-semibold text-purple-900">{formatDateWithWeekday(new Date())}</p>
                       </div>
                     </div>
 
@@ -647,7 +637,7 @@ const Reports = () => {
                         <div className="bg-gray-50 rounded-xl p-4 mb-6">
                           <div className="flex items-center gap-2 text-gray-700">
                             <CalendarDaysIcon className="w-5 h-5 text-purple-600" />
-                            <span className="font-medium">{formatDate(selectedReport.reportDate)}</span>
+                            <span className="font-medium">{formatDateWithWeekday(selectedReport.reportDate)}</span>
                           </div>
                         </div>
 
@@ -705,7 +695,7 @@ const Reports = () => {
                             <p className="text-sm text-green-700">
                               Reviewed by <span className="font-medium">{selectedReport.reviewedBy.name}</span>
                               {selectedReport.reviewedAt && (
-                                <span> on {formatDate(selectedReport.reviewedAt)}</span>
+                                <span> on {formatDateWithWeekday(selectedReport.reviewedAt)}</span>
                               )}
                             </p>
                             {selectedReport.reviewNotes && (

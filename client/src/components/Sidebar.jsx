@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -16,6 +16,7 @@ import {
   ChartBarIcon,
   ArchiveBoxIcon,
   DocumentTextIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeIconSolid,
@@ -28,10 +29,21 @@ import {
   DocumentTextIcon as DocumentTextIconSolid,
 } from '@heroicons/react/24/solid';
 
-const Sidebar = () => {
+const Sidebar = ({ isOpen, onClose }) => {
   const [collapsed, setCollapsed] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  // Close sidebar on route change for mobile
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        // Reset collapsed state on desktop
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -94,7 +106,7 @@ const Sidebar = () => {
       path: '/dashboard/reports',
       icon: DocumentTextIcon,
       iconSolid: DocumentTextIconSolid,
-      roles: ['super_admin', 'agent'],
+      roles: ['super_admin', 'admin', 'agent'],
     },
   ];
 
@@ -102,15 +114,33 @@ const Sidebar = () => {
     item.roles.includes(user?.role)
   );
 
+  const handleNavClick = () => {
+    // Close sidebar on mobile after clicking a nav item
+    if (window.innerWidth < 1024 && onClose) {
+      onClose();
+    }
+  };
+
   return (
-    <aside 
-      className={`fixed left-0 top-0 h-screen bg-white border-r border-gray-200 transition-all duration-300 z-50 flex flex-col ${
-        collapsed ? 'w-20' : 'w-64'
-      }`}
-    >
+    <>
+      {/* Overlay for mobile */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+      
+      <aside 
+        className={`fixed left-0 top-0 h-screen bg-white border-r border-gray-200 transition-all duration-300 z-50 flex flex-col
+          ${collapsed ? 'lg:w-20' : 'lg:w-64'}
+          ${isOpen ? 'w-64 translate-x-0' : '-translate-x-full lg:translate-x-0 lg:w-64'}
+          ${collapsed && !isOpen ? 'lg:w-20' : ''}
+        `}
+      >
       {/* Logo Section */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100">
-        {!collapsed && (
+        {(!collapsed || isOpen) && (
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center">
               <BuildingOfficeIcon className="w-6 h-6 text-white" />
@@ -121,17 +151,26 @@ const Sidebar = () => {
             </div>
           </div>
         )}
-        {collapsed && (
+        {collapsed && !isOpen && (
           <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center mx-auto">
             <BuildingOfficeIcon className="w-6 h-6 text-white" />
           </div>
         )}
+        {/* Close button for mobile */}
+        {isOpen && (
+          <button
+            onClick={onClose}
+            className="lg:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+          >
+            <XMarkIcon className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
-      {/* Toggle Button */}
+      {/* Toggle Button - Hidden on mobile */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-20 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:bg-gray-50 transition-colors"
+        className="hidden lg:flex absolute -right-3 top-20 w-6 h-6 bg-white border border-gray-200 rounded-full items-center justify-center shadow-sm hover:bg-gray-50 transition-colors"
       >
         {collapsed ? (
           <ChevronRightIcon className="w-4 h-4 text-gray-600" />
@@ -147,12 +186,13 @@ const Sidebar = () => {
             key={item.path}
             to={item.path}
             end={item.path === '/dashboard'}
+            onClick={handleNavClick}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group ${
                 isActive
                   ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/30'
                   : 'text-gray-600 hover:bg-gray-100'
-              } ${collapsed ? 'justify-center' : ''}`
+              } ${collapsed && !isOpen ? 'justify-center' : ''}`
             }
           >
             {({ isActive }) => (
@@ -162,7 +202,7 @@ const Sidebar = () => {
                 ) : (
                   <item.icon className={`w-5 h-5 flex-shrink-0 group-hover:text-purple-600`} />
                 )}
-                {!collapsed && (
+                {(!collapsed || isOpen) && (
                   <span className="font-medium">{item.name}</span>
                 )}
               </>
@@ -175,12 +215,13 @@ const Sidebar = () => {
       <div className="border-t border-gray-100 p-3">
         <NavLink
           to="/dashboard/profile"
+          onClick={handleNavClick}
           className={({ isActive }) =>
             `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all mb-2 ${
               isActive
                 ? 'bg-purple-50 text-purple-700'
                 : 'text-gray-600 hover:bg-gray-100'
-            } ${collapsed ? 'justify-center' : ''}`
+            } ${collapsed && !isOpen ? 'justify-center' : ''}`
           }
         >
           <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-800 rounded-full flex items-center justify-center flex-shrink-0">
@@ -188,7 +229,7 @@ const Sidebar = () => {
               {user?.name?.charAt(0)?.toUpperCase() || 'U'}
             </span>
           </div>
-          {!collapsed && (
+          {(!collapsed || isOpen) && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">{user?.name}</p>
               <p className="text-xs text-gray-500 truncate capitalize">{user?.role?.replace('_', ' ')}</p>
@@ -199,14 +240,15 @@ const Sidebar = () => {
         <button
           onClick={handleLogout}
           className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-600 hover:bg-red-50 transition-all w-full ${
-            collapsed ? 'justify-center' : ''
+            collapsed && !isOpen ? 'justify-center' : ''
           }`}
         >
           <ArrowRightOnRectangleIcon className="w-5 h-5 shrink-0" />
-          {!collapsed && <span className="font-medium">Logout</span>}
+          {(!collapsed || isOpen) && <span className="font-medium">Logout</span>}
         </button>
       </div>
     </aside>
+    </>
   );
 };
 

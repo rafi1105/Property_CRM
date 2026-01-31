@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { customerAPI, agentAPI, propertyAPI, authAPI } from '../utils/api';
+import { formatDate, formatDateShort, formatDateWithWeekday, formatTime } from '../utils/dateFormat';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../components/DashboardLayout';
 import { Dialog, Transition } from '@headlessui/react';
@@ -81,6 +82,7 @@ const CustomerManagement = () => {
   const [filterZone, setFilterZone] = useState('all');
   const [filterThana, setFilterThana] = useState('all');
   const [customerScope, setCustomerScope] = useState('own');
+  const [sourceFilter, setSourceFilter] = useState('all'); // 'all', 'assigned', 'self-added', 'agent-added'
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
   const [newNote, setNewNote] = useState('');
@@ -123,10 +125,17 @@ const CustomerManagement = () => {
     if (user?.role !== 'agent') fetchAgents();
   }, [user]);
 
+  // Refetch customers when sourceFilter changes
+  useEffect(() => {
+    if (user) {
+      fetchCustomers();
+    }
+  }, [sourceFilter]);
+
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterPriority, filterStatus, filterAgent, filterZone, filterThana, customerScope]);
+  }, [searchTerm, filterPriority, filterStatus, filterAgent, filterZone, filterThana, customerScope, sourceFilter]);
 
   // Handle edit query parameter from CustomerDetails page
   useEffect(() => {
@@ -147,14 +156,15 @@ const CustomerManagement = () => {
       if (filterPriority !== 'all') params.priority = filterPriority;
       if (filterStatus !== 'all') params.status = filterStatus;
       if (searchTerm) params.search = searchTerm;
+      if (sourceFilter !== 'all') params.sourceFilter = sourceFilter;
 
       let response;
       if (customerScope === 'foreign') {
         response = await customerAPI.getForeignCustomers(params);
       } else {
         response = user?.role === 'agent' 
-          ? await customerAPI.getMyCustomers()
-          : await customerAPI.getAll(params);
+          ? await customerAPI.getMyCustomers({ sourceFilter: sourceFilter !== 'all' ? sourceFilter : undefined })
+          : await customerAPI.getMyCustomers({ sourceFilter: sourceFilter !== 'all' ? sourceFilter : undefined });
       }
       
       const data = response.data;
@@ -482,67 +492,98 @@ const CustomerManagement = () => {
   return (
     <DashboardLayout title="Customers" subtitle="Manage your customer relationships">
       {/* Header Actions */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4">
-        <div className="flex items-center gap-3">
-          {/* View Mode Toggle */}
-          <div className="flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <button
-              onClick={() => setViewMode('card')}
-              className={`p-2.5 transition-colors ${viewMode === 'card' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
-              title="Card View"
-            >
-              <Squares2X2Icon className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setViewMode('table')}
-              className={`p-2.5 transition-colors ${viewMode === 'table' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
-              title="Table View"
-            >
-              <TableCellsIcon className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Customer Scope Toggle (Own/Foreign) - Only for Super Admin */}
-          {user?.role === 'super_admin' && (
+      <div className="flex flex-col gap-3 sm:gap-4 mb-4">
+        {/* Top Row - View toggle, filters, and Add button */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            {/* View Mode Toggle */}
             <div className="flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden">
               <button
-                onClick={() => { setCustomerScope('own'); fetchCustomers(); }}
-                className={`px-4 py-2.5 text-sm font-medium transition-colors ${customerScope === 'own' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                onClick={() => setViewMode('card')}
+                className={`p-2 sm:p-2.5 transition-colors ${viewMode === 'card' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                title="Card View"
               >
-                My Customers
+                <Squares2X2Icon className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
               <button
-                onClick={() => { setCustomerScope('foreign'); fetchCustomers(); }}
-                className={`px-4 py-2.5 text-sm font-medium transition-colors ${customerScope === 'foreign' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                onClick={() => setViewMode('table')}
+                className={`p-2 sm:p-2.5 transition-colors ${viewMode === 'table' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                title="Table View"
               >
-                Agent Customers
+                <TableCellsIcon className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
-          )}
-        </div>
 
-        <button
-          onClick={() => { resetForm(); setShowAddModal(true); }}
-          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:shadow-purple-500/30 transition-all font-medium"
-        >
-          <PlusIcon className="w-5 h-5" />
-          Add Customer
-        </button>
+            {/* Customer Source Filter for Agents */}
+            {user?.role === 'agent' && (
+              <div className="flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden text-xs sm:text-sm">
+                <button
+                  onClick={() => { setSourceFilter('all'); }}
+                  className={`px-2 sm:px-4 py-2 sm:py-2.5 font-medium transition-colors ${sourceFilter === 'all' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => { setSourceFilter('assigned'); }}
+                  className={`px-2 sm:px-4 py-2 sm:py-2.5 font-medium transition-colors ${sourceFilter === 'assigned' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                >
+                  Assigned
+                </button>
+                <button
+                  onClick={() => { setSourceFilter('self-added'); }}
+                  className={`px-2 sm:px-4 py-2 sm:py-2.5 font-medium transition-colors ${sourceFilter === 'self-added' ? 'bg-green-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                >
+                  <span className="hidden sm:inline">Self Added</span>
+                  <span className="sm:hidden">Self</span>
+                </button>
+              </div>
+            )}
+
+            {/* Customer Scope Toggle for Super Admin */}
+            {user?.role === 'super_admin' && (
+              <div className="flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden text-xs sm:text-sm">
+                <button
+                  onClick={() => { setSourceFilter('all'); }}
+                  className={`px-2 sm:px-4 py-2 sm:py-2.5 font-medium transition-colors ${sourceFilter === 'all' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                >
+                  <span className="hidden sm:inline">All Customers</span>
+                  <span className="sm:hidden">All</span>
+                </button>
+                <button
+                  onClick={() => { setSourceFilter('agent-added'); }}
+                  className={`px-2 sm:px-4 py-2 sm:py-2.5 font-medium transition-colors ${sourceFilter === 'agent-added' ? 'bg-orange-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                >
+                  <span className="hidden sm:inline">Agent Customers</span>
+                  <span className="sm:hidden">Agent</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => { resetForm(); setShowAddModal(true); }}
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:shadow-purple-500/30 transition-all font-medium text-xs sm:text-sm"
+          >
+            <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="hidden sm:inline">Add Customer</span>
+            <span className="sm:hidden">Add</span>
+          </button>
+        </div>
       </div>
 
       {/* Search and Filter Section */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-6">
-        {/* Row 1: Search and Basic Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 sm:p-4 mb-4 sm:mb-6">
+        {/* All Filters in One Row - scrollable on mobile */}
+        <div className="flex flex-nowrap gap-2 sm:gap-3 overflow-x-auto pb-2 -mx-3 px-3 sm:mx-0 sm:px-0">
           {/* Search */}
-          <div className="relative lg:col-span-2">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <div className="relative min-w-[180px] sm:w-64 flex-shrink-0">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by name, email, phone..."
+              placeholder="Search..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+              className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 text-xs sm:text-sm"
             />
           </div>
 
@@ -550,7 +591,7 @@ const CustomerManagement = () => {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700"
+            className="px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700 text-xs sm:text-sm flex-shrink-0"
           >
             <option value="all">All Status</option>
             <option value="new">New</option>
@@ -567,12 +608,12 @@ const CustomerManagement = () => {
           <select
             value={filterPriority}
             onChange={(e) => setFilterPriority(e.target.value)}
-            className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700"
+            className="px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700 text-xs sm:text-sm flex-shrink-0"
           >
-            <option value="all">All Priorities</option>
-            <option value="high">High Priority</option>
-            <option value="medium">Medium Priority</option>
-            <option value="low">Low Priority</option>
+            <option value="all">Priority</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
           </select>
 
           {/* Agent Filter (only for admin/super_admin) */}
@@ -580,7 +621,7 @@ const CustomerManagement = () => {
             <select
               value={filterAgent}
               onChange={(e) => setFilterAgent(e.target.value)}
-              className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700"
+              className="px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700 text-xs sm:text-sm flex-shrink-0"
             >
               <option value="all">All Agents</option>
               <option value="unassigned">Unassigned</option>
@@ -589,15 +630,12 @@ const CustomerManagement = () => {
               ))}
             </select>
           )}
-        </div>
 
-        {/* Row 2: Location Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
           {/* Zone Filter */}
           <select
             value={filterZone}
             onChange={(e) => { setFilterZone(e.target.value); setFilterThana('all'); }}
-            className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700"
+            className="px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700 text-xs sm:text-sm flex-shrink-0"
           >
             <option value="all">All Zones</option>
             {Object.keys(locationData).map(zone => (
@@ -610,7 +648,7 @@ const CustomerManagement = () => {
             value={filterThana}
             onChange={(e) => setFilterThana(e.target.value)}
             disabled={filterZone === 'all'}
-            className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700 text-xs sm:text-sm flex-shrink-0 disabled:bg-gray-100 disabled:cursor-not-allowed"
           >
             <option value="all">All Thanas</option>
             {filterZone !== 'all' && locationData[filterZone] && Object.keys(locationData[filterZone]).map(thana => (
@@ -621,83 +659,82 @@ const CustomerManagement = () => {
 
         {/* Active Filters Display */}
         {hasActiveFilters && (
-          <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap items-center gap-2">
-            <span className="text-sm text-gray-600 font-medium">Active Filters:</span>
+          <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-100 flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <span className="text-xs sm:text-sm text-gray-600 font-medium">Filters:</span>
             {searchTerm && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
-                Search: "{searchTerm}"
+              <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                "{searchTerm}"
                 <button onClick={() => setSearchTerm('')} className="hover:text-purple-900">
-                  <XMarkIcon className="w-3.5 h-3.5" />
+                  <XMarkIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 </button>
               </span>
             )}
             {filterStatus !== 'all' && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                Status: {filterStatus}
+              <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                {filterStatus}
                 <button onClick={() => setFilterStatus('all')} className="hover:text-blue-900">
-                  <XMarkIcon className="w-3.5 h-3.5" />
+                  <XMarkIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 </button>
               </span>
             )}
             {filterPriority !== 'all' && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium">
-                Priority: {filterPriority}
+              <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium">
+                {filterPriority}
                 <button onClick={() => setFilterPriority('all')} className="hover:text-orange-900">
-                  <XMarkIcon className="w-3.5 h-3.5" />
+                  <XMarkIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 </button>
               </span>
             )}
             {filterAgent !== 'all' && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
-                Agent: {filterAgent === 'unassigned' ? 'Unassigned' : agents.find(a => a._id === filterAgent)?.name}
+              <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                {filterAgent === 'unassigned' ? 'Unassigned' : agents.find(a => a._id === filterAgent)?.name}
                 <button onClick={() => setFilterAgent('all')} className="hover:text-green-900">
-                  <XMarkIcon className="w-3.5 h-3.5" />
+                  <XMarkIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 </button>
               </span>
             )}
             {filterZone !== 'all' && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-teal-100 text-teal-800 rounded-full text-xs font-medium">
-                Zone: {filterZone}
+              <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 bg-teal-100 text-teal-800 rounded-full text-xs font-medium">
+                {filterZone}
                 <button onClick={() => { setFilterZone('all'); setFilterThana('all'); }} className="hover:text-teal-900">
-                  <XMarkIcon className="w-3.5 h-3.5" />
+                  <XMarkIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 </button>
               </span>
             )}
             {filterThana !== 'all' && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-cyan-100 text-cyan-800 rounded-full text-xs font-medium">
-                Thana: {filterThana}
+              <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 bg-cyan-100 text-cyan-800 rounded-full text-xs font-medium">
+                {filterThana}
                 <button onClick={() => setFilterThana('all')} className="hover:text-cyan-900">
-                  <XMarkIcon className="w-3.5 h-3.5" />
+                  <XMarkIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 </button>
               </span>
             )}
             <button
               onClick={clearAllFilters}
-              className="text-sm text-red-600 hover:text-red-800 font-medium ml-2"
+              className="text-xs sm:text-sm text-red-600 hover:text-red-800 font-medium ml-1 sm:ml-2"
             >
-              Clear All
+              Clear
             </button>
           </div>
         )}
 
         {/* Results Count and Items Per Page */}
-        <div className="mt-4 pt-4 border-t border-gray-100 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-          <div className="text-sm text-gray-600">
-            Showing <span className="font-semibold">{filteredCustomers.length > 0 ? startIndex + 1 : 0}-{Math.min(endIndex, filteredCustomers.length)}</span> of <span className="font-semibold">{filteredCustomers.length}</span> customers
+        <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="text-xs sm:text-sm text-gray-600">
+            <span className="font-semibold">{filteredCustomers.length > 0 ? startIndex + 1 : 0}-{Math.min(endIndex, filteredCustomers.length)}</span> of <span className="font-semibold">{filteredCustomers.length}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Show:</span>
+            <span className="text-xs sm:text-sm text-gray-600">Show:</span>
             <select
               value={itemsPerPage}
               onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-              className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700 text-sm"
+              className="px-2 sm:px-3 py-1 sm:py-1.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700 text-xs sm:text-sm"
             >
               <option value={12}>12</option>
               <option value={25}>25</option>
               <option value={50}>50</option>
               <option value={100}>100</option>
             </select>
-            <span className="text-sm text-gray-600">per page</span>
           </div>
         </div>
       </div>
@@ -811,7 +848,7 @@ const CustomerManagement = () => {
                       <div className="flex items-center gap-2 text-sm mt-2">
                         <CalendarIcon className="w-4 h-4 text-orange-500" />
                         <span className={`${new Date(customer.nextFollowUpDate) <= new Date() ? 'text-red-600 font-medium' : 'text-orange-600'}`}>
-                          Follow-up: {new Date(customer.nextFollowUpDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          Follow-up: {formatDate(customer.nextFollowUpDate)}
                         </span>
                       </div>
                     )}
@@ -951,7 +988,7 @@ const CustomerManagement = () => {
                         <td className="px-4 py-3 whitespace-nowrap">
                           {customer.nextFollowUpDate ? (
                             <span className={`text-xs font-medium ${new Date(customer.nextFollowUpDate) <= new Date() ? 'text-red-600 bg-red-50 px-2 py-1 rounded-lg' : 'text-orange-600 bg-orange-50 px-2 py-1 rounded-lg'}`}>
-                              {new Date(customer.nextFollowUpDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                              {formatDate(customer.nextFollowUpDate)}
                             </span>
                           ) : (
                             <span className="text-xs text-gray-400">-</span>
@@ -1554,7 +1591,7 @@ const CustomerManagement = () => {
                           {selectedCustomer.nextFollowUpDate && (
                             <div className="mb-3 p-3 bg-white rounded-lg">
                               <p className="text-sm text-gray-700">
-                                <span className="font-medium">Date:</span> {new Date(selectedCustomer.nextFollowUpDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                                <span className="font-medium">Date:</span> {formatDateWithWeekday(selectedCustomer.nextFollowUpDate)}
                               </p>
                               {typeof selectedCustomer.nextFollowUpAction === 'string' && selectedCustomer.nextFollowUpAction && (
                                 <p className="text-sm text-gray-700 mt-1">
@@ -1652,11 +1689,7 @@ const CustomerManagement = () => {
                                     const isToday = noteDate.toDateString() === new Date().toDateString();
                                     const isYesterday = new Date(noteDate.getTime() + 86400000).toDateString() === new Date().toDateString();
                                     
-                                    let dateLabel = noteDate.toLocaleDateString('en-US', { 
-                                      month: 'short', 
-                                      day: 'numeric', 
-                                      year: 'numeric' 
-                                    });
+                                    let dateLabel = formatDate(noteDate);
                                     if (isToday) dateLabel = 'Today';
                                     else if (isYesterday) dateLabel = 'Yesterday';
 
@@ -1691,11 +1724,7 @@ const CustomerManagement = () => {
                                                   <div className="flex items-center gap-2 text-xs text-gray-500">
                                                     <span>{dateLabel}</span>
                                                     <span>•</span>
-                                                    <span>{noteDate.toLocaleTimeString('en-US', { 
-                                                      hour: 'numeric', 
-                                                      minute: '2-digit', 
-                                                      hour12: true 
-                                                    })}</span>
+                                                    <span>{formatTime(noteDate)}</span>
                                                   </div>
                                                 </div>
                                                 {index === 0 && (
@@ -1713,11 +1742,7 @@ const CustomerManagement = () => {
                                               {note.nextFollowUpDate && (
                                                 <div className="mt-2 flex items-center gap-2 text-xs bg-orange-50 text-orange-700 px-2 py-1 rounded-lg w-fit">
                                                   <CalendarIcon className="w-3 h-3" />
-                                                  <span>Follow-up: {new Date(note.nextFollowUpDate).toLocaleDateString('en-US', { 
-                                                    month: 'short', 
-                                                    day: 'numeric', 
-                                                    year: 'numeric' 
-                                                  })}</span>
+                                                  <span>Follow-up: {formatDate(note.nextFollowUpDate)}</span>
                                                 </div>
                                               )}
                                             </div>

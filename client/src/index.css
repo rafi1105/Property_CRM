@@ -126,23 +126,24 @@ body {
   color: var(--text-primary);
 }
 
-/* Custom Scrollbar - Dark Purple Theme */
+/* Custom Scrollbar - Gray Theme */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-dark-surface);
+  background: #e5e7eb;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, var(--color-primary), var(--color-secondary));
-  border-radius: var(--radius-full);
+  background: #9ca3af;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, var(--color-primary-light), var(--color-primary));
+  background: #6b7280;
 }
 
 /* Animations */

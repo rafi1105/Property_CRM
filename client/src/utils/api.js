@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://sintecproperty.com/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://property-crm-server.vercel.app/api';
 
 // Create axios instance
 const api = axios.create({
@@ -70,7 +70,7 @@ export const propertyAPI = {
 export const customerAPI = {
   getAll: (params) => api.get('/customers', { params }),
   getById: (id) => api.get(`/customers/${id}`),
-  getMyCustomers: () => api.get('/customers/my/customers'),
+  getMyCustomers: (params) => api.get('/customers/my/customers', { params }),
   getForeignCustomers: (params) => api.get('/customers/foreign/customers', { params }),
   getDueFollowUpsCount: () => api.get('/customers/follow-ups/due/count'),
   getDueFollowUps: () => api.get('/customers/follow-ups/due'),

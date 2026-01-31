@@ -11,21 +11,30 @@ const DashboardLayout = ({ children, title, subtitle }) => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Sidebar */}
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main Content */}
-      <div className="lg:pl-64 pl-20 min-h-screen">
+      <div className="lg:pl-64 min-h-screen">
         {/* Top Header Bar */}
-        <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200">
+        <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-200">
           <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
-            {/* Left - Title */}
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
-              {subtitle && <p className="text-sm text-gray-500">{subtitle}</p>}
+            {/* Left - Mobile Menu & Title */}
+            <div className="flex items-center gap-3">
+              {/* Mobile Menu Button */}
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                <Bars3Icon className="w-6 h-6" />
+              </button>
+              <div>
+                <h1 className="text-lg sm:text-xl font-semibold text-gray-900 line-clamp-1">{title}</h1>
+                {subtitle && <p className="text-xs sm:text-sm text-gray-500 line-clamp-1 hidden sm:block">{subtitle}</p>}
+              </div>
             </div>
 
             {/* Right - Search & Actions */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               {/* Search */}
               <div className="hidden md:flex items-center">
                 <div className="relative">
@@ -60,7 +69,7 @@ const DashboardLayout = ({ children, title, subtitle }) => {
         </header>
 
         {/* Page Content */}
-        <main className="p-4 sm:p-6 lg:p-8">
+        <main className="p-3 sm:p-4 md:p-6 lg:p-8">
           {children}
         </main>
       </div>

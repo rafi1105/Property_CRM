@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { dashboardAPI, propertyAPI, visitAPI, customerAPI } from '../utils/api';
+import { formatDate } from '../utils/dateFormat';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../components/DashboardLayout';
 import { Dialog, Transition } from '@headlessui/react';
@@ -274,7 +275,7 @@ const AdminDashboard = () => {
       type: 'property',
       action: 'Property added',
       item: p.title || p.name || 'New Property',
-      time: p.createdAt ? new Date(p.createdAt).toLocaleDateString() : 'Recently',
+      time: p.createdAt ? formatDate(p.createdAt) : 'Recently',
       icon: BuildingOfficeIcon,
       color: 'bg-purple-100 text-purple-600'
     })),
@@ -283,7 +284,7 @@ const AdminDashboard = () => {
       type: 'customer',
       action: 'Customer added',
       item: c.name || 'New Customer',
-      time: c.createdAt ? new Date(c.createdAt).toLocaleDateString() : 'Recently',
+      time: c.createdAt ? formatDate(c.createdAt) : 'Recently',
       icon: UsersIcon,
       color: 'bg-blue-100 text-blue-600'
     }))
@@ -340,133 +341,134 @@ const AdminDashboard = () => {
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 mb-6 sm:mb-8">
         {/* Total Properties */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-              <BuildingOfficeIcon className="w-6 h-6 text-purple-600" />
+        <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+              <BuildingOfficeIcon className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
             </div>
             <Link
               to="/dashboard/properties"
-              className="text-xs font-medium text-purple-600 hover:text-purple-700"
+              className="text-xs font-medium text-purple-600 hover:text-purple-700 hidden sm:block"
             >
               View →
             </Link>
           </div>
-          <h3 className="text-3xl font-bold text-gray-900">{stats?.overview?.totalProperties || stats?.totalProperties || 0}</h3>
-          <p className="text-gray-500 text-sm mt-1">Total Properties</p>
+          <h3 className="text-2xl sm:text-3xl font-bold text-gray-900">{stats?.overview?.totalProperties || stats?.totalProperties || 0}</h3>
+          <p className="text-gray-500 text-xs sm:text-sm mt-1">Total Properties</p>
         </div>
 
         {/* Total Customers */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-              <UsersIcon className="w-6 h-6 text-blue-600" />
+        <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+              <UsersIcon className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
             </div>
             <Link
               to="/dashboard/customers"
-              className="text-xs font-medium text-blue-600 hover:text-blue-700"
+              className="text-xs font-medium text-blue-600 hover:text-blue-700 hidden sm:block"
             >
               View →
             </Link>
           </div>
-          <h3 className="text-3xl font-bold text-gray-900">{stats?.overview?.totalCustomers || stats?.totalCustomers || 0}</h3>
-          <p className="text-gray-500 text-sm mt-1">Total Customers</p>
+          <h3 className="text-2xl sm:text-3xl font-bold text-gray-900">{stats?.overview?.totalCustomers || stats?.totalCustomers || 0}</h3>
+          <p className="text-gray-500 text-xs sm:text-sm mt-1">Total Customers</p>
         </div>
 
         {/* Own Customers (My Customers) */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
-              <UsersIcon className="w-6 h-6 text-emerald-600" />
+        <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+              <UsersIcon className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600" />
             </div>
             <Link
               to="/dashboard/customers"
-              className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
+              className="text-xs font-medium text-emerald-600 hover:text-emerald-700 hidden sm:block"
             >
               View →
             </Link>
           </div>
-          <h3 className="text-3xl font-bold text-gray-900">{ownCustomersCount}</h3>
-          <p className="text-gray-500 text-sm mt-1">My Customers</p>
+          <h3 className="text-2xl sm:text-3xl font-bold text-gray-900">{ownCustomersCount}</h3>
+          <p className="text-gray-500 text-xs sm:text-sm mt-1">My Customers</p>
         </div>
 
         {/* Active Tasks */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-              <ClipboardDocumentListIcon className="w-6 h-6 text-orange-600" />
+        <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+              <ClipboardDocumentListIcon className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
             </div>
             <Link
               to="/dashboard/tasks"
-              className="text-xs font-medium text-orange-600 hover:text-orange-700"
+              className="text-xs font-medium text-orange-600 hover:text-orange-700 hidden sm:block"
             >
               View →
             </Link>
           </div>
-          <h3 className="text-3xl font-bold text-gray-900">{stats?.overview?.totalTasks || stats?.pendingTasks || stats?.activeTasks || 0}</h3>
-          <p className="text-gray-500 text-sm mt-1">Active Tasks</p>
+          <h3 className="text-2xl sm:text-3xl font-bold text-gray-900">{stats?.overview?.totalTasks || stats?.pendingTasks || stats?.activeTasks || 0}</h3>
+          <p className="text-gray-500 text-xs sm:text-sm mt-1">Active Tasks</p>
         </div>
 
         {/* Total Agents/Users */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-              <UserGroupIcon className="w-6 h-6 text-green-600" />
+        <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow col-span-2 lg:col-span-1">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 rounded-xl flex items-center justify-center">
+              <UserGroupIcon className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
             </div>
             <Link
               to="/dashboard/agents"
-              className="text-xs font-medium text-green-600 hover:text-green-700"
+              className="text-xs font-medium text-green-600 hover:text-green-700 hidden sm:block"
             >
               View →
             </Link>
           </div>
-          <h3 className="text-3xl font-bold text-gray-900">{stats?.overview?.totalAgents || stats?.totalAgents || stats?.totalUsers || 0}</h3>
-          <p className="text-gray-500 text-sm mt-1">{user?.role === 'super_admin' ? 'Total Users' : 'Total Agents'}</p>
+          <h3 className="text-2xl sm:text-3xl font-bold text-gray-900">{stats?.overview?.totalAgents || stats?.totalAgents || stats?.totalUsers || 0}</h3>
+          <p className="text-gray-500 text-xs sm:text-sm mt-1">{user?.role === 'super_admin' ? 'Total Users' : 'Total Agents'}</p>
         </div>
       </div>
 
       {/* Visit Done Section */}
-      <div className="mb-8">
+      <div className="mb-6 sm:mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900">Visit Done</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900">Visit Done</h2>
           <button
             onClick={() => setShowVisitModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:shadow-green-500/30 transition-all font-medium"
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:shadow-green-500/30 transition-all font-medium text-xs sm:text-sm"
           >
-            <PlusIcon className="w-5 h-5" />
-            Record Visit
+            <PlusIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="hidden sm:inline">Record Visit</span>
+            <span className="sm:hidden">Add</span>
           </button>
         </div>
 
         {/* Visit Statistics */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg">
-            <div className="flex items-center justify-between mb-2">
-              <CalendarDaysIcon className="w-8 h-8 opacity-80" />
-              <CheckCircleIcon className="w-6 h-6 opacity-60" />
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-3 sm:p-6 text-white shadow-lg">
+            <div className="flex items-center justify-between mb-1 sm:mb-2">
+              <CalendarDaysIcon className="w-5 h-5 sm:w-8 sm:h-8 opacity-80" />
+              <CheckCircleIcon className="w-4 h-4 sm:w-6 sm:h-6 opacity-60 hidden sm:block" />
             </div>
-            <h3 className="text-3xl font-bold">{visitStats.today}</h3>
-            <p className="text-blue-100 text-sm mt-1">Today's Visits</p>
+            <h3 className="text-xl sm:text-3xl font-bold">{visitStats.today}</h3>
+            <p className="text-blue-100 text-xs sm:text-sm mt-1">Today</p>
           </div>
 
-          <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-6 text-white shadow-lg">
-            <div className="flex items-center justify-between mb-2">
-              <CalendarDaysIcon className="w-8 h-8 opacity-80" />
-              <ClockIcon className="w-6 h-6 opacity-60" />
+          <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-3 sm:p-6 text-white shadow-lg">
+            <div className="flex items-center justify-between mb-1 sm:mb-2">
+              <CalendarDaysIcon className="w-5 h-5 sm:w-8 sm:h-8 opacity-80" />
+              <ClockIcon className="w-4 h-4 sm:w-6 sm:h-6 opacity-60 hidden sm:block" />
             </div>
-            <h3 className="text-3xl font-bold">{visitStats.monthly}</h3>
-            <p className="text-indigo-100 text-sm mt-1">This Month's Visits</p>
+            <h3 className="text-xl sm:text-3xl font-bold">{visitStats.monthly}</h3>
+            <p className="text-indigo-100 text-xs sm:text-sm mt-1">This Month</p>
           </div>
 
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
-            <div className="flex items-center justify-between mb-2">
-              <ChartBarIcon className="w-8 h-8 opacity-80" />
-              <ExclamationCircleIcon className="w-6 h-6 opacity-60" />
+          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-3 sm:p-6 text-white shadow-lg">
+            <div className="flex items-center justify-between mb-1 sm:mb-2">
+              <ChartBarIcon className="w-5 h-5 sm:w-8 sm:h-8 opacity-80" />
+              <ExclamationCircleIcon className="w-4 h-4 sm:w-6 sm:h-6 opacity-60 hidden sm:block" />
             </div>
-            <h3 className="text-3xl font-bold">{visitStats.total}</h3>
-            <p className="text-purple-100 text-sm mt-1">Total Visits</p>
+            <h3 className="text-xl sm:text-3xl font-bold">{visitStats.total}</h3>
+            <p className="text-purple-100 text-xs sm:text-sm mt-1">Total</p>
           </div>
         </div>
 
@@ -486,7 +488,7 @@ const AdminDashboard = () => {
                         {visit.property ? `Property: ${visit.property.name}` : 'No property specified'}
                       </p>
                       <p className="text-xs text-gray-400 mt-1">
-                        {new Date(visit.visitDate).toLocaleDateString()} - {visit.agent?.name || 'Unknown Agent'}
+                        {formatDate(visit.visitDate)} - {visit.agent?.name || 'Unknown Agent'}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -1070,7 +1072,7 @@ const AdminDashboard = () => {
                                 {customer.nextFollowUpDate && (
                                   <p className="text-xs text-orange-600 mt-2 flex items-center gap-1 justify-end">
                                     <CalendarDaysIcon className="w-3 h-3" />
-                                    Due: {new Date(customer.nextFollowUpDate).toLocaleDateString()}
+                                    Due: {formatDate(customer.nextFollowUpDate)}
                                   </p>
                                 )}
                               </div>

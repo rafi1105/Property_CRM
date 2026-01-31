@@ -90,13 +90,13 @@ const NotificationsPage = () => {
   return (
     <DashboardLayout title="Notifications" subtitle={`${unreadCount} unread notifications`}>
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
         <div className="flex gap-2">
           {['all', 'unread', 'read'].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-xl font-medium capitalize transition-all ${
+              className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl font-medium capitalize transition-all text-xs sm:text-sm ${
                 filter === f
                   ? 'bg-purple-600 text-white'
                   : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
@@ -110,10 +110,11 @@ const NotificationsPage = () => {
         {unreadCount > 0 && (
           <button
             onClick={handleMarkAllAsRead}
-            className="flex items-center gap-2 px-4 py-2 text-purple-600 bg-purple-50 rounded-xl hover:bg-purple-100 font-medium"
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 text-purple-600 bg-purple-50 rounded-xl hover:bg-purple-100 font-medium text-xs sm:text-sm"
           >
-            <CheckIcon className="w-5 h-5" />
-            Mark all as read
+            <CheckIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="hidden sm:inline">Mark all as read</span>
+            <span className="sm:hidden">Mark all</span>
           </button>
         )}
       </div>
@@ -124,47 +125,47 @@ const NotificationsPage = () => {
           <div className="w-10 h-10 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin"></div>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           {filteredNotifications.map((notification) => {
             const { icon: Icon, color } = getNotificationIcon(notification.type);
             return (
               <div
                 key={notification._id}
-                className={`bg-white rounded-2xl p-5 shadow-sm border transition-all ${
+                className={`bg-white rounded-2xl p-3 sm:p-5 shadow-sm border transition-all ${
                   notification.read ? 'border-gray-100' : 'border-purple-200 bg-purple-50/30'
                 }`}
               >
-                <div className="flex items-start gap-4">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
-                    <Icon className="w-5 h-5" />
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
+                    <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className={`font-medium ${notification.read ? 'text-gray-700' : 'text-gray-900'}`}>
+                      <div className="flex-1 min-w-0">
+                        <h3 className={`font-medium text-sm sm:text-base ${notification.read ? 'text-gray-700' : 'text-gray-900'}`}>
                           {notification.title}
                         </h3>
-                        <p className="text-sm text-gray-500 mt-1">{notification.message}</p>
-                        <p className="text-xs text-gray-400 mt-2">
+                        <p className="text-xs sm:text-sm text-gray-500 mt-1 line-clamp-2">{notification.message}</p>
+                        <p className="text-xs text-gray-400 mt-1 sm:mt-2">
                           {new Date(notification.createdAt).toLocaleString()}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2 ml-4">
+                      <div className="flex items-center gap-1 sm:gap-2 ml-2 sm:ml-4 flex-shrink-0">
                         {!notification.read && (
                           <button
                             onClick={() => handleMarkAsRead(notification._id)}
-                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                            className="p-1.5 sm:p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                             title="Mark as read"
                           >
-                            <CheckIcon className="w-5 h-5" />
+                            <CheckIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                           </button>
                         )}
                         <button
                           onClick={() => handleDelete(notification._id)}
-                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-1.5 sm:p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                           title="Delete"
                         >
-                          <TrashIcon className="w-5 h-5" />
+                          <TrashIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                         </button>
                       </div>
                     </div>
@@ -175,10 +176,10 @@ const NotificationsPage = () => {
           })}
 
           {filteredNotifications.length === 0 && (
-            <div className="text-center py-12 bg-white rounded-2xl">
-              <BellIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900">No notifications</h3>
-              <p className="text-gray-500 mt-1">You're all caught up!</p>
+            <div className="text-center py-8 sm:py-12 bg-white rounded-2xl">
+              <BellIcon className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-3 sm:mb-4" />
+              <h3 className="text-base sm:text-lg font-medium text-gray-900">No notifications</h3>
+              <p className="text-sm sm:text-base text-gray-500 mt-1">You're all caught up!</p>
             </div>
           )}
         </div>

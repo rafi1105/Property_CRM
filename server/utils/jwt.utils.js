@@ -6,10 +6,14 @@ export const generateToken = (userId) => {
     if (!process.env.JWT_SECRET) {
       throw new Error('JWT_SECRET environment variable is not set');
     }
+    
+    // Ensure expiresIn is valid - default to 7 days
+    const expiresIn = process.env.JWT_EXPIRE && process.env.JWT_EXPIRE.trim() ? process.env.JWT_EXPIRE.trim() : '7d';
+    
     return jwt.sign(
       { id: userId },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRE || '7d' }
+      { expiresIn }
     );
   } catch (error) {
     console.error('Error generating JWT token:', error);

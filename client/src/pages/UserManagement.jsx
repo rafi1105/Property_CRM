@@ -199,75 +199,82 @@ const UserManagement = () => {
   return (
     <DashboardLayout title="User Management" subtitle="Manage system users and roles">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative">
+      <div className="flex flex-col gap-4 mb-6">
+        {/* Search and Filter Row */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
               placeholder="Search users..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 w-64"
+              className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
             />
           </div>
 
-          <select
-            value={filterRole}
-            onChange={(e) => setFilterRole(e.target.value)}
-            className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700"
-          >
-            <option value="all">All Roles</option>
-            <option value="super_admin">Super Admin</option>
-            <option value="admin">Admin</option>
-            <option value="agent">Agent</option>
-          </select>
+          <div className="flex items-center gap-2">
+            <select
+              value={filterRole}
+              onChange={(e) => setFilterRole(e.target.value)}
+              className="flex-1 sm:flex-none px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700 text-sm"
+            >
+              <option value="all">All Roles</option>
+              <option value="super_admin">Super Admin</option>
+              <option value="admin">Admin</option>
+              <option value="agent">Agent</option>
+            </select>
 
-          {/* View Toggle */}
-          <div className="flex items-center bg-white border border-gray-200 rounded-xl p-1">
-            <button
-              onClick={() => setViewMode('card')}
-              className={`p-2 rounded-lg transition-colors ${viewMode === 'card' ? 'bg-purple-100 text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
-              title="Card View"
-            >
-              <Squares2X2Icon className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setViewMode('table')}
-              className={`p-2 rounded-lg transition-colors ${viewMode === 'table' ? 'bg-purple-100 text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
-              title="Table View"
-            >
-              <TableCellsIcon className="w-5 h-5" />
-            </button>
+            {/* View Toggle */}
+            <div className="flex items-center bg-white border border-gray-200 rounded-xl p-1">
+              <button
+                onClick={() => setViewMode('card')}
+                className={`p-2 rounded-lg transition-colors ${viewMode === 'card' ? 'bg-purple-100 text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
+                title="Card View"
+              >
+                <Squares2X2Icon className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setViewMode('table')}
+                className={`p-2 rounded-lg transition-colors ${viewMode === 'table' ? 'bg-purple-100 text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
+                title="Table View"
+              >
+                <TableCellsIcon className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
 
-        <button
-          onClick={() => { resetForm(); setShowAddModal(true); }}
-          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:shadow-purple-500/30 transition-all font-medium"
-        >
-          <PlusIcon className="w-5 h-5" />
-          Add User
-        </button>
+        {/* Add Button Row */}
+        <div className="flex justify-end">
+          <button
+            onClick={() => { resetForm(); setShowAddModal(true); }}
+            className="flex items-center gap-2 px-4 sm:px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:shadow-purple-500/30 transition-all font-medium text-sm sm:text-base"
+          >
+            <PlusIcon className="w-5 h-5" />
+            <span className="hidden sm:inline">Add User</span>
+            <span className="sm:hidden">Add</span>
+          </button>
+        </div>
       </div>
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-2xl font-bold text-gray-900">{users.length}</p>
-          <p className="text-sm text-gray-500">Total Users</p>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <div className="bg-white rounded-xl p-3 sm:p-4 border border-gray-100">
+          <p className="text-xl sm:text-2xl font-bold text-gray-900">{users.length}</p>
+          <p className="text-xs sm:text-sm text-gray-500">Total Users</p>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-2xl font-bold text-purple-600">{users.filter(u => u.role === 'super_admin').length}</p>
-          <p className="text-sm text-gray-500">Super Admins</p>
+        <div className="bg-white rounded-xl p-3 sm:p-4 border border-gray-100">
+          <p className="text-xl sm:text-2xl font-bold text-purple-600">{users.filter(u => u.role === 'super_admin').length}</p>
+          <p className="text-xs sm:text-sm text-gray-500">Super Admins</p>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-2xl font-bold text-blue-600">{users.filter(u => u.role === 'admin').length}</p>
-          <p className="text-sm text-gray-500">Admins</p>
+        <div className="bg-white rounded-xl p-3 sm:p-4 border border-gray-100">
+          <p className="text-xl sm:text-2xl font-bold text-blue-600">{users.filter(u => u.role === 'admin').length}</p>
+          <p className="text-xs sm:text-sm text-gray-500">Admins</p>
         </div>
-        <div className="bg-white rounded-xl p-4 border border-gray-100">
-          <p className="text-2xl font-bold text-green-600">{users.filter(u => u.role === 'agent').length}</p>
-          <p className="text-sm text-gray-500">Agents</p>
+        <div className="bg-white rounded-xl p-3 sm:p-4 border border-gray-100">
+          <p className="text-xl sm:text-2xl font-bold text-green-600">{users.filter(u => u.role === 'agent').length}</p>
+          <p className="text-xs sm:text-sm text-gray-500">Agents</p>
         </div>
       </div>
 
@@ -278,21 +285,21 @@ const UserManagement = () => {
         </div>
       ) : viewMode === 'card' ? (
         /* Card View */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
           {paginatedUsers.map((u) => (
-            <div key={u._id} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0">
-                  <span className="text-white font-bold text-xl">{u.name?.charAt(0)?.toUpperCase()}</span>
+            <div key={u._id} className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-white font-bold text-lg sm:text-xl">{u.name?.charAt(0)?.toUpperCase()}</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900 truncate">{u.name}</h3>
-                  <p className="text-sm text-gray-500 truncate">{u.email}</p>
+                  <h3 className="font-semibold text-gray-900 truncate text-sm sm:text-base">{u.name}</h3>
+                  <p className="text-xs sm:text-sm text-gray-500 truncate">{u.email}</p>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between mb-4">
-                <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${roleColors[u.role] || roleColors.admin}`}>
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium capitalize ${roleColors[u.role] || roleColors.admin}`}>
                   {u.role?.replace('_', ' ')}
                 </span>
                 <span className={`flex items-center gap-1 text-xs ${u.isActive !== false ? 'text-green-600' : 'text-gray-400'}`}>
@@ -302,15 +309,15 @@ const UserManagement = () => {
               </div>
 
               {u.phone && (
-                <div className={`flex items-center gap-2 text-sm text-gray-500 ${u.role === 'agent' && (u.assignedZone || u.assignedThana) ? 'mb-2' : 'mb-4'}`}>
-                  <PhoneIcon className="w-4 h-4" />
-                  {u.phone}
+                <div className={`flex items-center gap-2 text-xs sm:text-sm text-gray-500 ${u.role === 'agent' && (u.assignedZone || u.assignedThana) ? 'mb-2' : 'mb-3 sm:mb-4'}`}>
+                  <PhoneIcon className="w-4 h-4 flex-shrink-0" />
+                  <span className="truncate">{u.phone}</span>
                 </div>
               )}
 
               {u.role === 'agent' && (u.assignedZone || u.assignedThana) && (
-                <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
-                  <MapPinIcon className="w-4 h-4" />
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">
+                  <MapPinIcon className="w-4 h-4 flex-shrink-0" />
                   <span className="truncate">
                     {u.assignedThana ? `${u.assignedThana}${u.assignedZone ? `, ${u.assignedZone}` : ''}` : u.assignedZone}
                   </span>
@@ -318,20 +325,20 @@ const UserManagement = () => {
               )}
 
               {!u.phone && !(u.role === 'agent' && (u.assignedZone || u.assignedThana)) && (
-                <div className="mb-4"></div>
+                <div className="mb-3 sm:mb-4"></div>
               )}
 
-              <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
+              <div className="flex items-center gap-2 pt-3 sm:pt-4 border-t border-gray-100">
                 <button
                   onClick={() => openEditModal(u)}
-                  className="flex-1 py-2 text-purple-600 bg-purple-50 rounded-xl hover:bg-purple-100 font-medium text-sm"
+                  className="flex-1 py-2 text-purple-600 bg-purple-50 rounded-xl hover:bg-purple-100 font-medium text-xs sm:text-sm"
                 >
                   Edit
                 </button>
-                {u.role !== 'super_admin' && (
+                {u.role !== 'super_admin' && user?.role === 'super_admin' && (
                   <button
                     onClick={() => handleDelete(u._id)}
-                    className="flex-1 py-2 text-red-600 bg-red-50 rounded-xl hover:bg-red-100 font-medium text-sm"
+                    className="flex-1 py-2 text-red-600 bg-red-50 rounded-xl hover:bg-red-100 font-medium text-xs sm:text-sm"
                   >
                     Delete
                   </button>
@@ -354,68 +361,71 @@ const UserManagement = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gradient-to-r from-purple-800 to-indigo-600">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">User</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Email</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Phone</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Role</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Location</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Actions</th>
+                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">User</th>
+                  <th className="hidden sm:table-cell px-3 sm:px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Email</th>
+                  <th className="hidden md:table-cell px-3 sm:px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Phone</th>
+                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Role</th>
+                  <th className="hidden lg:table-cell px-3 sm:px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Location</th>
+                  <th className="hidden sm:table-cell px-3 sm:px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Status</th>
+                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
                 {paginatedUsers.map((u, index) => (
                   <tr key={u._id} className={`hover:bg-purple-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0">
-                          <span className="text-white font-semibold">{u.name?.charAt(0)?.toUpperCase()}</span>
+                    <td className="px-3 sm:px-4 py-3">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0">
+                          <span className="text-white font-semibold text-xs sm:text-sm">{u.name?.charAt(0)?.toUpperCase()}</span>
                         </div>
-                        <span className="font-medium text-gray-900">{u.name}</span>
+                        <div className="min-w-0">
+                          <span className="font-medium text-gray-900 text-xs sm:text-sm block truncate max-w-[100px] sm:max-w-none">{u.name}</span>
+                          <span className="sm:hidden text-xs text-gray-500 truncate block">{u.email}</span>
+                        </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <EnvelopeIcon className="w-4 h-4 text-gray-400" />
-                        {u.email}
+                    <td className="hidden sm:table-cell px-3 sm:px-4 py-3">
+                      <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
+                        <EnvelopeIcon className="w-4 h-4 text-gray-400 hidden md:block" />
+                        <span className="truncate max-w-[150px]">{u.email}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-gray-600">{u.phone || '-'}</span>
+                    <td className="hidden md:table-cell px-3 sm:px-4 py-3">
+                      <span className="text-xs sm:text-sm text-gray-600">{u.phone || '-'}</span>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${roleColors[u.role] || roleColors.admin}`}>
+                    <td className="px-3 sm:px-4 py-3">
+                      <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium capitalize ${roleColors[u.role] || roleColors.admin}`}>
                         {u.role?.replace('_', ' ')}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="hidden lg:table-cell px-3 sm:px-4 py-3">
                       {u.role === 'agent' && (u.assignedZone || u.assignedThana) ? (
-                        <div className="text-sm">
+                        <div className="text-xs sm:text-sm">
                           <p className="text-gray-900 font-medium">{u.assignedThana || '-'}</p>
                           <p className="text-xs text-gray-500 truncate max-w-[150px]">{u.assignedZone || '-'}</p>
                         </div>
                       ) : (
-                        <span className="text-sm text-gray-400">-</span>
+                        <span className="text-xs sm:text-sm text-gray-400">-</span>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="hidden sm:table-cell px-3 sm:px-4 py-3">
                       <span className={`flex items-center gap-1 text-xs ${u.isActive !== false ? 'text-green-600' : 'text-gray-400'}`}>
                         <span className={`w-2 h-2 rounded-full ${u.isActive !== false ? 'bg-green-500' : 'bg-gray-300'}`}></span>
                         {u.isActive !== false ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                    <td className="px-3 sm:px-4 py-3">
+                      <div className="flex items-center gap-1 sm:gap-2">
                         <button
                           onClick={() => openEditModal(u)}
-                          className="px-3 py-1 text-xs font-medium text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                          className="px-2 sm:px-3 py-1 text-xs font-medium text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
                         >
                           Edit
                         </button>
-                        {u.role !== 'super_admin' && (
+                        {u.role !== 'super_admin' && user?.role === 'super_admin' && (
                           <button
                             onClick={() => handleDelete(u._id)}
-                            className="px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="px-2 sm:px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           >
                             Delete
                           </button>
@@ -432,18 +442,18 @@ const UserManagement = () => {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-          <p className="text-sm text-gray-600">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 p-3 sm:p-4">
+          <p className="text-xs sm:text-sm text-gray-600 text-center sm:text-left">
             Page <span className="font-semibold">{currentPage}</span> of <span className="font-semibold">{totalPages}</span>
-            {' '}• Showing {paginatedUsers.length} of {filteredUsers.length} users
+            <span className="hidden sm:inline">{' '}• Showing {paginatedUsers.length} of {filteredUsers.length} users</span>
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <button
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-1.5 sm:p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <ChevronLeftIcon className="w-5 h-5 text-gray-600" />
+              <ChevronLeftIcon className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
             </button>
             {[...Array(Math.min(5, totalPages))].map((_, i) => {
               let pageNum;
@@ -460,7 +470,7 @@ const UserManagement = () => {
                 <button
                   key={pageNum}
                   onClick={() => setCurrentPage(pageNum)}
-                  className={`w-10 h-10 rounded-lg font-medium transition-colors ${
+                  className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg font-medium transition-colors text-xs sm:text-sm ${
                     currentPage === pageNum
                       ? 'bg-purple-600 text-white'
                       : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
@@ -473,9 +483,9 @@ const UserManagement = () => {
             <button
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-1.5 sm:p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <ChevronRightIcon className="w-5 h-5 text-gray-600" />
+              <ChevronRightIcon className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
             </button>
           </div>
         </div>
@@ -491,9 +501,9 @@ const UserManagement = () => {
           <div className="fixed inset-0 overflow-y-auto">
             <div className="flex min-h-full items-center justify-center p-4">
               <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
-                <Dialog.Panel className="w-full max-w-md bg-white rounded-2xl shadow-xl">
-                  <div className="border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-                    <Dialog.Title className="text-xl font-semibold text-gray-900">
+                <Dialog.Panel className="w-full max-w-md bg-white rounded-2xl shadow-xl max-h-[90vh] overflow-hidden flex flex-col">
+                  <div className="border-b border-gray-100 px-4 sm:px-6 py-4 flex items-center justify-between flex-shrink-0">
+                    <Dialog.Title className="text-lg sm:text-xl font-semibold text-gray-900">
                       {showEditModal ? 'Edit User' : 'Add New User'}
                     </Dialog.Title>
                     <button onClick={() => { setShowAddModal(false); setShowEditModal(false); }} className="p-2 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-gray-100">
@@ -501,7 +511,7 @@ const UserManagement = () => {
                     </button>
                   </div>
 
-                  <form onSubmit={showEditModal ? handleUpdate : handleSubmit} className="p-6 space-y-4">
+                  <form onSubmit={showEditModal ? handleUpdate : handleSubmit} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
                       <input
@@ -509,7 +519,7 @@ const UserManagement = () => {
                         required
                         value={formData.name}
                         onChange={(e) => setFormData({...formData, name: e.target.value})}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 text-sm sm:text-base"
                       />
                     </div>
                     <div>
@@ -519,7 +529,7 @@ const UserManagement = () => {
                         required
                         value={formData.email}
                         onChange={(e) => setFormData({...formData, email: e.target.value})}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 text-sm sm:text-base"
                       />
                     </div>
                     <div>
@@ -531,7 +541,7 @@ const UserManagement = () => {
                         required={!showEditModal}
                         value={formData.password}
                         onChange={(e) => setFormData({...formData, password: e.target.value})}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 text-sm sm:text-base"
                       />
                     </div>
                     <div>
@@ -539,8 +549,11 @@ const UserManagement = () => {
                       <select
                         value={formData.role}
                         onChange={(e) => setFormData({...formData, role: e.target.value})}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 text-sm sm:text-base"
                       >
+                        {user?.role === 'super_admin' && (
+                          <option value="super_admin">Super Admin</option>
+                        )}
                         <option value="admin">Admin</option>
                         <option value="agent">Agent</option>
                       </select>
@@ -551,7 +564,7 @@ const UserManagement = () => {
                         type="tel"
                         value={formData.phone}
                         onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 text-sm sm:text-base"
                       />
                     </div>
 
@@ -563,7 +576,7 @@ const UserManagement = () => {
                           <select
                             value={formData.assignedZone}
                             onChange={(e) => setFormData({...formData, assignedZone: e.target.value, assignedThana: ''})}
-                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 text-sm sm:text-base"
                           >
                             <option value="">Select Zone</option>
                             {Object.keys(locationData).map(zone => (
@@ -577,7 +590,7 @@ const UserManagement = () => {
                             <select
                               value={formData.assignedThana}
                               onChange={(e) => setFormData({...formData, assignedThana: e.target.value})}
-                              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 text-sm sm:text-base"
                             >
                               <option value="">Select Thana</option>
                               {Object.keys(locationData[formData.assignedZone]).map(thana => (
@@ -601,10 +614,10 @@ const UserManagement = () => {
                     </div>
 
                     <div className="flex gap-3 pt-4 border-t">
-                      <button type="button" onClick={() => { setShowAddModal(false); setShowEditModal(false); }} className="flex-1 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium">
+                      <button type="button" onClick={() => { setShowAddModal(false); setShowEditModal(false); }} className="flex-1 py-2.5 sm:py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium text-sm sm:text-base">
                         Cancel
                       </button>
-                      <button type="submit" className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg font-medium">
+                      <button type="submit" className="flex-1 py-2.5 sm:py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg font-medium text-sm sm:text-base">
                         {showEditModal ? 'Update' : 'Create'}
                       </button>
                     </div>
