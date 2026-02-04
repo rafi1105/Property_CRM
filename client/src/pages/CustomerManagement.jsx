@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { customerAPI, agentAPI, propertyAPI, authAPI } from '../utils/api';
+import { customerAPI, agentAPI, propertyAPI, authAPI, customerSourceAPI } from '../utils/api';
 import { formatDate, formatDateShort, formatDateWithWeekday, formatTime } from '../utils/dateFormat';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../components/DashboardLayout';
@@ -32,6 +32,7 @@ import {
   ArrowsRightLeftIcon,
   XCircleIcon,
   ArrowPathIcon,
+  Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 
 // Helper function to extract note text properly
@@ -98,6 +99,12 @@ const CustomerManagement = () => {
     agentId: ''
   });
 
+  // Source Management State
+  const [customerSources, setCustomerSources] = useState([]);
+  const [showSourceModal, setShowSourceModal] = useState(false);
+  const [newSourceName, setNewSourceName] = useState('');
+  const [sourceLoading, setSourceLoading] = useState(false);
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -122,6 +129,7 @@ const CustomerManagement = () => {
   useEffect(() => {
     fetchCustomers();
     fetchProperties();
+    fetchCustomerSources();
     if (user?.role !== 'agent') fetchAgents();
   }, [user]);
 
@@ -201,6 +209,61 @@ const CustomerManagement = () => {
       } catch (err) {
         console.error('Fallback agent fetch failed:', err);
       }
+    }
+  };
+
+  // Fetch customer sources
+  const fetchCustomerSources = async () => {
+    try {
+      const response = await customerSourceAPI.getAll();
+      setCustomerSources(response.data.sources || []);
+    } catch (error) {
+      console.error('Error fetching customer sources:', error);
+      // Fallback to default sources
+      setCustomerSources([
+        { _id: '1', name: 'Website', value: 'website' },
+        { _id: '2', name: 'Referral', value: 'referral' },
+        { _id: '3', name: 'Social Media', value: 'social_media' },
+        { _id: '4', name: 'Walk In', value: 'walk_in' },
+        { _id: '5', name: 'Call', value: 'call' },
+        { _id: '6', name: 'Other', value: 'other' }
+      ]);
+    }
+  };
+
+  // Add new source (super_admin only)
+  const handleAddSource = async () => {
+    if (!newSourceName.trim()) {
+      toast.error('Please enter a source name');
+      return;
+    }
+
+    try {
+      setSourceLoading(true);
+      await customerSourceAPI.create(newSourceName.trim());
+      toast.success('Source added successfully');
+      setNewSourceName('');
+      fetchCustomerSources();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to add source');
+    } finally {
+      setSourceLoading(false);
+    }
+  };
+
+  // Delete source (super_admin only)
+  const handleDeleteSource = async (sourceId) => {
+    if (!window.confirm('Are you sure you want to delete this source?')) return;
+
+    try {
+      setSourceLoading(true);
+      await customerSourceAPI.delete(sourceId);
+      toast.success('Source deleted successfully');
+      fetchCustomerSources();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to delete source');
+    } finally {
+      setSourceLoading(false);
     }
   };
 
@@ -1285,19 +1348,30 @@ const CustomerManagement = () => {
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Source</label>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="block text-sm font-medium text-gray-700">Source</label>
+                          {user?.role === 'super_admin' && (
+                            <button
+                              type="button"
+                              onClick={() => setShowSourceModal(true)}
+                              className="text-xs text-purple-600 hover:text-purple-700 flex items-center gap-1"
+                            >
+                              <Cog6ToothIcon className="w-3.5 h-3.5" />
+                              Manage
+                            </button>
+                          )}
+                        </div>
                         <select
                           name="source"
                           value={formData.source}
                           onChange={handleInputChange}
                           className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
                         >
-                          <option value="website">Website</option>
-                          <option value="referral">Referral</option>
-                          <option value="social_media">Social Media</option>
-                          <option value="walk_in">Walk In</option>
-                          <option value="call">Call</option>
-                          <option value="other">Other</option>
+                          {customerSources.map(source => (
+                            <option key={source._id || source.value} value={source.value}>
+                              {source.name}
+                            </option>
+                          ))}
                         </select>
                       </div>
 
@@ -1624,12 +1698,20 @@ const CustomerManagement = () => {
                           </div>
                         )}
 
-                        {selectedCustomer.requirements && (
-                          <div className="mb-6">
-                            <h4 className="font-medium text-gray-900 mb-2">Requirements</h4>
-                            <p className="text-gray-600 bg-gray-50 p-3 rounded-xl">{selectedCustomer.requirements}</p>
-                          </div>
-                        )}
+                        {/* Notes/Requirements Section - Always visible */}
+                        <div className="mb-6 border border-amber-200 bg-amber-50 rounded-xl p-4">
+                          <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                            <TagIcon className="w-5 h-5 text-amber-600" />
+                            Notes / Requirements
+                          </h4>
+                          {selectedCustomer.requirements ? (
+                            <div className="p-3 bg-white rounded-lg">
+                              <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{selectedCustomer.requirements}</p>
+                            </div>
+                          ) : (
+                            <p className="text-gray-500 text-sm italic">No notes or requirements added yet.</p>
+                          )}
+                        </div>
 
                         {/* Next Follow-up Section */}
                         <div className="mb-6 border border-blue-200 bg-blue-50 rounded-xl p-4">
@@ -2005,6 +2087,123 @@ const CustomerManagement = () => {
                         Close Customer
                       </button>
                     </div>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* Source Management Modal - Super Admin Only */}
+      <Transition appear show={showSourceModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setShowSourceModal(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white shadow-2xl transition-all">
+                  <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
+                    <Dialog.Title className="text-xl font-bold text-white flex items-center gap-2">
+                      <Cog6ToothIcon className="w-6 h-6" />
+                      Manage Customer Sources
+                    </Dialog.Title>
+                    <button
+                      onClick={() => setShowSourceModal(false)}
+                      className="text-white/80 hover:text-white transition-colors"
+                    >
+                      <XMarkIcon className="w-6 h-6" />
+                    </button>
+                  </div>
+
+                  <div className="p-6 space-y-4">
+                    {/* Add New Source */}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newSourceName}
+                        onChange={(e) => setNewSourceName(e.target.value)}
+                        placeholder="Enter new source name..."
+                        className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                        onKeyPress={(e) => e.key === 'Enter' && handleAddSource()}
+                      />
+                      <button
+                        onClick={handleAddSource}
+                        disabled={sourceLoading || !newSourceName.trim()}
+                        className="px-4 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                      >
+                        <PlusIcon className="w-5 h-5" />
+                        Add
+                      </button>
+                    </div>
+
+                    {/* Source List */}
+                    <div className="border border-gray-200 rounded-xl overflow-hidden">
+                      <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                        <h4 className="text-sm font-semibold text-gray-700">Available Sources</h4>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto">
+                        {customerSources.length === 0 ? (
+                          <div className="px-4 py-6 text-center text-gray-500">
+                            No sources available
+                          </div>
+                        ) : (
+                          customerSources.map((source) => (
+                            <div
+                              key={source._id || source.value}
+                              className="flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                                  <TagIcon className="w-4 h-4 text-purple-600" />
+                                </div>
+                                <div>
+                                  <p className="font-medium text-gray-900">{source.name}</p>
+                                  <p className="text-xs text-gray-500">{source.value}</p>
+                                </div>
+                              </div>
+                              {source.isDefault ? (
+                                <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">
+                                  Default
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => handleDeleteSource(source._id)}
+                                  disabled={sourceLoading}
+                                  className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                                  title="Delete source"
+                                >
+                                  <TrashIcon className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-gray-500 text-center">
+                      Default sources cannot be deleted. Custom sources can be removed anytime.
+                    </p>
                   </div>
                 </Dialog.Panel>
               </Transition.Child>

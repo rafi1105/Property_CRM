@@ -54,6 +54,11 @@ const customerSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  // Notes/Requirements - general notes about customer needs
+  requirements: {
+    type: String,
+    trim: true
+  },
   // Assignment tracking
   assignedAgent: {
     type: mongoose.Schema.Types.ObjectId,
@@ -99,10 +104,11 @@ const customerSchema = new mongoose.Schema({
   nextFollowUpDate: {
     type: Date
   },
-  // Source tracking
+  // Source tracking - now dynamic (managed via CustomerSource model)
   source: {
     type: String,
-    enum: ['website', 'referral', 'social_media', 'walk_in', 'call', 'other'],
+    trim: true,
+    lowercase: true,
     default: 'website'
   },
   // Reference tracking - who referred this customer

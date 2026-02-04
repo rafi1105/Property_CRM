@@ -451,6 +451,7 @@ app.post('/api/test-firebase', async (req, res) => {
 import authRoutes from './routes/auth.routes.js';
 import propertyRoutes from './routes/property.routes.js';
 import customerRoutes from './routes/customer.routes.js';
+import customerSourceRoutes from './routes/customerSource.routes.js';
 import taskRoutes from './routes/task.routes.js';
 import agentRoutes from './routes/agent.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
@@ -458,6 +459,9 @@ import notificationRoutes from './routes/notification.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
 import visitRoutes from './routes/visit.routes.js';
 import reportRoutes from './routes/report.routes.js';
+
+// Import seed function for customer sources
+import { seedDefaultSources } from './controllers/customerSource.controller.js';
 
 // Serve static files from uploads directory
 // Use UPLOADS_DIR env variable for Hostinger or default to local uploads folder
@@ -468,6 +472,7 @@ app.use('/uploads', express.static(uploadsPath));
 app.use('/api/auth', authRoutes);
 app.use('/api/properties', propertyRoutes);
 app.use('/api/customers', customerRoutes);
+app.use('/api/customer-sources', customerSourceRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/agents', agentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
@@ -475,6 +480,9 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/visits', visitRoutes);
 app.use('/api/reports', reportRoutes);
+
+// Seed default customer sources
+seedDefaultSources();
 
 // Error handling middleware
 app.use((err, req, res, next) => {

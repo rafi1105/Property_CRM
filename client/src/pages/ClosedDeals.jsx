@@ -148,7 +148,7 @@ const ClosedDeals = () => {
               {/* Header */}
               <div className="flex justify-between items-start mb-3 sm:mb-4">
                 <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-linear-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center flex-shrink-0">
                     <span className="text-white font-semibold text-base sm:text-lg">
                       {deal.name?.charAt(0)?.toUpperCase()}
                     </span>

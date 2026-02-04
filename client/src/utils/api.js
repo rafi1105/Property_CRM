@@ -86,6 +86,15 @@ export const customerAPI = {
   reopenCustomer: (id) => api.put(`/customers/${id}/reopen`)
 };
 
+// Customer Source APIs (for managing source dropdown options)
+export const customerSourceAPI = {
+  getAll: () => api.get('/customer-sources'),
+  getAllAdmin: () => api.get('/customer-sources/admin'),
+  create: (name) => api.post('/customer-sources', { name }),
+  update: (id, data) => api.put(`/customer-sources/${id}`, data),
+  delete: (id) => api.delete(`/customer-sources/${id}`)
+};
+
 // Task APIs
 export const taskAPI = {
   getAll: (params) => api.get('/tasks', { params }),

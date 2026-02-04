@@ -553,16 +553,18 @@ const CustomerDetails = () => {
                   </div>
                 )}
 
-                {/* Additional Requirements */}
-                {customer.requirements && (
-                  <div className="p-3 sm:p-4 bg-gray-50 rounded-xl">
-                    <div className="flex items-center gap-2 mb-2">
-                      <DocumentTextIcon className="w-4 h-4 text-gray-500" />
-                      <p className="text-[10px] sm:text-xs text-gray-500 font-medium">Additional Requirements</p>
-                    </div>
-                    <p className="text-gray-700 whitespace-pre-wrap text-xs sm:text-sm leading-relaxed">{customer.requirements}</p>
+                {/* Additional Requirements - Always visible */}
+                <div className="p-3 sm:p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <div className="flex items-center gap-2 mb-2">
+                    <DocumentTextIcon className="w-4 h-4 text-amber-600" />
+                    <p className="text-[10px] sm:text-xs text-amber-700 font-semibold">Notes / Requirements</p>
                   </div>
-                )}
+                  {customer.requirements ? (
+                    <p className="text-gray-700 whitespace-pre-wrap text-xs sm:text-sm leading-relaxed bg-white/70 p-2 rounded-lg">{customer.requirements}</p>
+                  ) : (
+                    <p className="text-gray-500 text-xs italic">No notes or requirements added yet.</p>
+                  )}
+                </div>
 
                 {/* No requirements message */}
                 {!customer.propertyType?.length && !customer.preferredLocation?.length && !customer.interestedProperties && !customer.interestedPropertyCode && !customer.requirements && (
