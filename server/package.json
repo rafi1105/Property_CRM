@@ -33,6 +33,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.3.3",
     "multer": "^2.0.2",
+    "node-cron": "^3.0.3",
     "react-toastify": "^11.0.5",
     "recharts": "^3.4.1"
   },

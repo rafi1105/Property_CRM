@@ -463,6 +463,9 @@ import reportRoutes from './routes/report.routes.js';
 // Import seed function for customer sources
 import { seedDefaultSources } from './controllers/customerSource.controller.js';
 
+// Import follow-up checker
+import { startFollowUpChecker } from './utils/followUpChecker.js';
+
 // Serve static files from uploads directory
 // Use UPLOADS_DIR env variable for Hostinger or default to local uploads folder
 const uploadsPath = process.env.UPLOADS_DIR || path.join(__dirname, 'uploads');
@@ -483,6 +486,12 @@ app.use('/api/reports', reportRoutes);
 
 // Seed default customer sources
 seedDefaultSources();
+
+// Start follow-up checker for missed follow-ups
+if (process.env.NODE_ENV !== 'test') {
+  startFollowUpChecker();
+  console.log('✅ Follow-up checker initialized');
+}
 
 // Error handling middleware
 app.use((err, req, res, next) => {

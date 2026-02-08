@@ -83,6 +83,10 @@ const CustomerDetails = () => {
     if (user?.role === 'super_admin') {
       fetchVisits();
     }
+    // Check for missed follow-ups for admins and super_admins
+    if (user?.role === 'admin' || user?.role === 'super_admin') {
+      checkMissedFollowUps();
+    }
   }, [id, user]);
 
   const fetchCustomer = async () => {
@@ -106,6 +110,64 @@ const CustomerDetails = () => {
     } catch (error) {
       console.error('Error fetching visits:', error);
     }
+  };
+
+  // Check for missed follow-ups and notify super admin
+  const checkMissedFollowUps = async () => {
+    if (!customer) return;
+    
+    // Check if this customer has missed follow-ups
+    if (customer.nextFollowUpDate && new Date(customer.nextFollowUpDate) < new Date()) {
+      const daysMissed = Math.floor((new Date() - new Date(customer.nextFollowUpDate)) / (1000 * 60 * 60 * 24));
+      
+      // Send notification to super admin if not already sent
+      if (daysMissed >= 1 && user?.role === 'super_admin') {
+        try {
+          const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+          await fetch(`${API_BASE_URL}/notifications/missed-followup`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({
+              customerId: customer._id,
+              daysMissed,
+              customerName: customer.name,
+              assignedAgent: customer.assignedAgent?._id || null
+            })
+          });
+        } catch (error) {
+          console.error('Error sending missed follow-up notification:', error);
+        }
+      }
+    }
+  };
+
+  // Get follow-up sequence number for a note
+  const getFollowUpNumber = (noteIndex, notes) => {
+    // Count notes with follow-up dates that come before this one
+    const sortedNotes = notes
+      .slice()
+      .sort((a, b) => new Date(a.addedAt || a.createdAt) - new Date(b.addedAt || b.createdAt));
+    
+    let followUpCount = 0;
+    for (let i = 0; i <= noteIndex; i++) {
+      if (sortedNotes[i]?.nextFollowUpDate) {
+        followUpCount++;
+      }
+    }
+    return followUpCount;
+  };
+
+  // Convert number to ordinal (1st, 2nd, 3rd, etc.)
+  const getOrdinal = (num) => {
+    const j = num % 10;
+    const k = num % 100;
+    if (j === 1 && k !== 11) return num + "st";
+    if (j === 2 && k !== 12) return num + "nd";
+    if (j === 3 && k !== 13) return num + "rd";
+    return num + "th";
   };
 
   const handleAddNote = async () => {
@@ -650,6 +712,32 @@ const CustomerDetails = () => {
                             ? `Yesterday at ${formatTime(noteDate)}`
                             : `${formatDate(noteDate)} at ${formatTime(noteDate)}`;
                         
+                        // Get follow-up number for notes with follow-up dates
+                        const sortedNotesChronological = customer.notes
+                          .slice()
+                          .sort((a, b) => new Date(a.addedAt || a.createdAt) - new Date(b.addedAt || b.createdAt));
+                        
+                        let followUpNumber = 0;
+                        let hasFollowUp = false;
+                        
+                        if (note.nextFollowUpDate) {
+                          hasFollowUp = true;
+                          // Count follow-ups before this note chronologically
+                          const noteTime = new Date(note.addedAt || note.createdAt);
+                          followUpNumber = sortedNotesChronological
+                            .filter(n => {
+                              const nTime = new Date(n.addedAt || n.createdAt);
+                              return n.nextFollowUpDate && nTime <= noteTime;
+                            })
+                            .length;
+                        }
+                        
+                        // Check if this follow-up was missed
+                        const isFollowUpMissed = note.nextFollowUpDate && new Date(note.nextFollowUpDate) < new Date();
+                        const daysMissed = isFollowUpMissed 
+                          ? Math.floor((new Date() - new Date(note.nextFollowUpDate)) / (1000 * 60 * 60 * 24))
+                          : 0;
+                        
                         return (
                           <div key={index} className="flex gap-2 sm:gap-3 group">
                             <div className="shrink-0 w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-gray-400 to-gray-500 rounded-full flex items-center justify-center text-white font-semibold text-xs sm:text-sm shadow-sm">
@@ -664,6 +752,11 @@ const CustomerDetails = () => {
                                 )}
                                 {note.editedAt && (
                                   <span className="px-1.5 sm:px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] sm:text-xs rounded-full font-medium">Edited</span>
+                                )}
+                                {hasFollowUp && (
+                                  <span className="px-1.5 sm:px-2 py-0.5 bg-purple-100 text-purple-700 text-[10px] sm:text-xs rounded-full font-medium">
+                                    {getOrdinal(followUpNumber)} Follow-up
+                                  </span>
                                 )}
                               </div>
                               
@@ -712,11 +805,23 @@ const CustomerDetails = () => {
                                     {getNoteText(note)}
                                   </p>
                                   {note.nextFollowUpDate && (
-                                    <div className="mt-2 sm:mt-3 flex items-center gap-2 text-xs">
-                                      <span className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 bg-orange-100 text-orange-700 rounded-lg font-medium text-[10px] sm:text-xs">
-                                        <CalendarIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                                        Follow-up: {formatDate(note.nextFollowUpDate)}
-                                      </span>
+                                    <div className="mt-2 sm:mt-3 flex flex-wrap items-center gap-2 text-xs">
+                                      {isFollowUpMissed ? (
+                                        <span className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 bg-red-100 text-red-700 rounded-lg font-medium text-[10px] sm:text-xs border border-red-200 animate-pulse">
+                                          <BellAlertIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                          Follow-up MISSED ({daysMissed} day{daysMissed > 1 ? 's' : ''} ago)
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 bg-orange-100 text-orange-700 rounded-lg font-medium text-[10px] sm:text-xs">
+                                          <CalendarIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                          Follow-up: {formatDate(note.nextFollowUpDate)}
+                                        </span>
+                                      )}
+                                      {hasFollowUp && (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-lg font-medium text-[10px] sm:text-xs">
+                                          #{followUpNumber}
+                                        </span>
+                                      )}
                                     </div>
                                   )}
                                   

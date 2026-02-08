@@ -5,7 +5,8 @@ import {
   markAsRead,
   markAllAsRead,
   deleteNotification,
-  clearReadNotifications
+  clearReadNotifications,
+  notifyMissedFollowUp
 } from '../controllers/notification.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 
@@ -31,5 +32,8 @@ router.patch('/:id/read', markAsRead);
 
 // Delete single notification
 router.delete('/:id', deleteNotification);
+
+// Report missed follow-up
+router.post('/missed-followup', notifyMissedFollowUp);
 
 export default router;

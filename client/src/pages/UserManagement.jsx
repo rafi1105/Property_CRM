@@ -315,16 +315,17 @@ const UserManagement = () => {
                 </div>
               )}
 
-              {u.role === 'agent' && (u.assignedZone || u.assignedThana) && (
+              {(u.role === 'agent' || u.role === 'admin') && (u.assignedZone || u.assignedThana) && (
                 <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">
                   <MapPinIcon className="w-4 h-4 flex-shrink-0" />
                   <span className="truncate">
                     {u.assignedThana ? `${u.assignedThana}${u.assignedZone ? `, ${u.assignedZone}` : ''}` : u.assignedZone}
+                    {u.role === 'admin' && <span className="text-purple-600 font-medium ml-1">(Regional Admin)</span>}
                   </span>
                 </div>
               )}
 
-              {!u.phone && !(u.role === 'agent' && (u.assignedZone || u.assignedThana)) && (
+              {!u.phone && !((u.role === 'agent' || u.role === 'admin') && (u.assignedZone || u.assignedThana)) && (
                 <div className="mb-3 sm:mb-4"></div>
               )}
 
@@ -399,10 +400,13 @@ const UserManagement = () => {
                       </span>
                     </td>
                     <td className="hidden lg:table-cell px-3 sm:px-4 py-3">
-                      {u.role === 'agent' && (u.assignedZone || u.assignedThana) ? (
+                      {(u.role === 'agent' || u.role === 'admin') && (u.assignedZone || u.assignedThana) ? (
                         <div className="text-xs sm:text-sm">
                           <p className="text-gray-900 font-medium">{u.assignedThana || '-'}</p>
-                          <p className="text-xs text-gray-500 truncate max-w-[150px]">{u.assignedZone || '-'}</p>
+                          <p className="text-xs text-gray-500 truncate max-w-[150px]">
+                            {u.assignedZone || '-'}
+                            {u.role === 'admin' && <span className="text-purple-600 font-medium ml-1">(Regional)</span>}
+                          </p>
                         </div>
                       ) : (
                         <span className="text-xs sm:text-sm text-gray-400">-</span>
@@ -568,11 +572,13 @@ const UserManagement = () => {
                       />
                     </div>
 
-                    {/* Zone and Thana fields for agents */}
-                    {formData.role === 'agent' && (
+                    {/* Zone and Thana fields for admins and agents */}
+                    {(formData.role === 'agent' || formData.role === 'admin') && (
                       <>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Assigned Zone</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Assigned Zone {formData.role === 'admin' ? '(Optional - for regional management)' : ''}
+                          </label>
                           <select
                             value={formData.assignedZone}
                             onChange={(e) => setFormData({...formData, assignedZone: e.target.value, assignedThana: ''})}
@@ -586,7 +592,9 @@ const UserManagement = () => {
                         </div>
                         {formData.assignedZone && locationData[formData.assignedZone] && (
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Assigned Thana</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Assigned Thana {formData.role === 'admin' ? '(Optional)' : ''}
+                            </label>
                             <select
                               value={formData.assignedThana}
                               onChange={(e) => setFormData({...formData, assignedThana: e.target.value})}
