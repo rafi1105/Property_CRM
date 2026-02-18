@@ -639,8 +639,28 @@ export const getMyCustomers = async (req, res) => {
           ]
         };
       }
+    } else if (req.user.role === 'admin') {
+      // Admin filtering options - show own customers + all customers
+      if (sourceFilter === 'assigned') {
+        // Only customers assigned to this admin
+        query = {
+          assignedAgent: req.user._id,
+          addedBy: { $ne: req.user._id }
+        };
+      } else if (sourceFilter === 'self-added') {
+        // Only customers added by this admin
+        query = { addedBy: req.user._id };
+      } else if (sourceFilter === 'agent-added') {
+        // Only customers added by agents
+        const agentUsers = await User.find({ role: 'agent' }).select('_id');
+        const agentIds = agentUsers.map(a => a._id);
+        query = { addedBy: { $in: agentIds } };
+      } else {
+        // Default: All customers (assigned to admin + added by admin + all others)
+        query = {};
+      }
     } else {
-      // Admin/Super Admin filtering options
+      // Super Admin filtering options
       if (sourceFilter === 'agent-added') {
         // Only customers added by agents (not super_admin)
         const agentUsers = await User.find({ role: 'agent' }).select('_id');

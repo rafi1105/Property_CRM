@@ -84,6 +84,7 @@ const CustomerManagement = () => {
   const [filterThana, setFilterThana] = useState('all');
   const [customerScope, setCustomerScope] = useState('own');
   const [sourceFilter, setSourceFilter] = useState('all'); // 'all', 'assigned', 'self-added', 'agent-added'
+  const [filterCustomerSource, setFilterCustomerSource] = useState('all'); // Filter by customer source (e.g., facebook, website)
   const [filterFollowUpDate, setFilterFollowUpDate] = useState('all'); // 'all', 'overdue', 'today', 'week', 'upcoming', 'none'
   const [filterFollowUpDateFrom, setFilterFollowUpDateFrom] = useState('');
   const [filterFollowUpDateTo, setFilterFollowUpDateTo] = useState('');
@@ -146,7 +147,7 @@ const CustomerManagement = () => {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterPriority, filterStatus, filterAgent, filterZone, filterThana, customerScope, sourceFilter, filterFollowUpDate, filterFollowUpDateFrom, filterFollowUpDateTo]);
+  }, [searchTerm, filterPriority, filterStatus, filterAgent, filterZone, filterThana, customerScope, sourceFilter, filterCustomerSource, filterFollowUpDate, filterFollowUpDateFrom, filterFollowUpDateTo]);
 
   // Handle edit query parameter from CustomerDetails page
   useEffect(() => {
@@ -285,6 +286,7 @@ const CustomerManagement = () => {
       (!customer.assignedAgent && filterAgent === 'unassigned');
     const matchesZone = filterZone === 'all' || customer.customerZone === filterZone;
     const matchesThana = filterThana === 'all' || customer.customerThana === filterThana;
+    const matchesCustomerSource = filterCustomerSource === 'all' || customer.source === filterCustomerSource;
 
     // Follow-up Date Filtering
     let matchesFollowUp = true;
@@ -322,7 +324,7 @@ const CustomerManagement = () => {
       if (followUpDate > toDate) matchesFollowUp = false;
     }
 
-    return matchesSearch && matchesStatus && matchesPriority && matchesAgent && matchesZone && matchesThana && matchesFollowUp;
+    return matchesSearch && matchesStatus && matchesPriority && matchesAgent && matchesZone && matchesThana && matchesCustomerSource && matchesFollowUp;
   });
 
   // Pagination
@@ -591,7 +593,7 @@ const CustomerManagement = () => {
     'closed': 'bg-gray-100 text-gray-700'
   };
 
-  const hasActiveFilters = searchTerm || filterStatus !== 'all' || filterPriority !== 'all' || filterAgent !== 'all' || filterZone !== 'all' || filterThana !== 'all' || filterFollowUpDate !== 'all' || filterFollowUpDateFrom || filterFollowUpDateTo;
+  const hasActiveFilters = searchTerm || filterStatus !== 'all' || filterPriority !== 'all' || filterAgent !== 'all' || filterZone !== 'all' || filterThana !== 'all' || filterCustomerSource !== 'all' || filterFollowUpDate !== 'all' || filterFollowUpDateFrom || filterFollowUpDateTo;
 
   const clearAllFilters = () => {
     setSearchTerm('');
@@ -603,6 +605,7 @@ const CustomerManagement = () => {
     setFilterFollowUpDate('all');
     setFilterFollowUpDateFrom('');
     setFilterFollowUpDateTo('');
+    setFilterCustomerSource('all');
   };
 
   return (
@@ -646,6 +649,31 @@ const CustomerManagement = () => {
                 >
                   <span className="hidden sm:inline">Agent Customers</span>
                   <span className="sm:hidden">Agent</span>
+                </button>
+              </div>
+            )}
+
+            {/* Customer Source Filter - Admin */}
+            {user?.role === 'admin' && (
+              <div className="flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden text-xs sm:text-sm">
+                <button
+                  onClick={() => { setSourceFilter('all'); }}
+                  className={`px-2 sm:px-4 py-2 sm:py-2.5 font-medium transition-colors ${sourceFilter === 'all' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => { setSourceFilter('assigned'); }}
+                  className={`px-2 sm:px-4 py-2 sm:py-2.5 font-medium transition-colors ${sourceFilter === 'assigned' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                >
+                  Assigned
+                </button>
+                <button
+                  onClick={() => { setSourceFilter('self-added'); }}
+                  className={`px-2 sm:px-4 py-2 sm:py-2.5 font-medium transition-colors ${sourceFilter === 'self-added' ? 'bg-green-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                >
+                  <span className="hidden sm:inline">Self Added</span>
+                  <span className="sm:hidden">Self</span>
                 </button>
               </div>
             )}
@@ -747,6 +775,20 @@ const CustomerManagement = () => {
             ))}
           </select>
 
+          {/* Customer Source Filter (Super Admin Only) */}
+          {user?.role === 'super_admin' && (
+            <select
+              value={filterCustomerSource}
+              onChange={(e) => setFilterCustomerSource(e.target.value)}
+              className="px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700 text-xs sm:text-sm flex-shrink-0"
+            >
+              <option value="all">All Sources</option>
+              {customerSources.map(source => (
+                <option key={source._id || source.value} value={source.value}>{source.name}</option>
+              ))}
+            </select>
+          )}
+
           {/* Follow-up Status Filter */}
           <select
             value={filterFollowUpDate}
@@ -834,6 +876,14 @@ const CustomerManagement = () => {
               <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 bg-cyan-100 text-cyan-800 rounded-full text-xs font-medium">
                 {filterThana}
                 <button onClick={() => setFilterThana('all')} className="hover:text-cyan-900">
+                  <XMarkIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                </button>
+              </span>
+            )}
+            {filterCustomerSource !== 'all' && (
+              <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
+                Source: {customerSources.find(s => s.value === filterCustomerSource)?.name || filterCustomerSource}
+                <button onClick={() => setFilterCustomerSource('all')} className="hover:text-yellow-900">
                   <XMarkIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 </button>
               </span>
@@ -1430,19 +1480,18 @@ const CustomerManagement = () => {
                         </select>
                       </div>
 
+                      {user?.role === 'super_admin' && (
                       <div>
                         <div className="flex items-center justify-between mb-2">
                           <label className="block text-sm font-medium text-gray-700">Source</label>
-                          {user?.role === 'super_admin' && (
-                            <button
-                              type="button"
-                              onClick={() => setShowSourceModal(true)}
-                              className="text-xs text-purple-600 hover:text-purple-700 flex items-center gap-1"
-                            >
-                              <Cog6ToothIcon className="w-3.5 h-3.5" />
-                              Manage
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => setShowSourceModal(true)}
+                            className="text-xs text-purple-600 hover:text-purple-700 flex items-center gap-1"
+                          >
+                            <Cog6ToothIcon className="w-3.5 h-3.5" />
+                            Manage
+                          </button>
                         </div>
                         <select
                           name="source"
@@ -1457,6 +1506,7 @@ const CustomerManagement = () => {
                           ))}
                         </select>
                       </div>
+                      )}
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Referred By</label>
@@ -2257,7 +2307,8 @@ const CustomerManagement = () => {
                   </div>
 
                   <div className="p-6 space-y-4">
-                    {/* Add New Source */}
+                    {/* Add New Source - super_admin only */}
+                    {user?.role === 'super_admin' && (
                     <div className="flex gap-2">
                       <input
                         type="text"
@@ -2276,6 +2327,7 @@ const CustomerManagement = () => {
                         Add
                       </button>
                     </div>
+                    )}
 
                     {/* Source List */}
                     <div className="border border-gray-200 rounded-xl overflow-hidden">
@@ -2306,7 +2358,7 @@ const CustomerManagement = () => {
                                 <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">
                                   Default
                                 </span>
-                              ) : (
+                              ) : user?.role === 'super_admin' ? (
                                 <button
                                   onClick={() => handleDeleteSource(source._id)}
                                   disabled={sourceLoading}
@@ -2315,16 +2367,18 @@ const CustomerManagement = () => {
                                 >
                                   <TrashIcon className="w-4 h-4" />
                                 </button>
-                              )}
+                              ) : null}
                             </div>
                           ))
                         )}
                       </div>
                     </div>
 
+                    {user?.role === 'super_admin' && (
                     <p className="text-xs text-gray-500 text-center">
                       Default sources cannot be deleted. Custom sources can be removed anytime.
                     </p>
+                    )}
                   </div>
                 </Dialog.Panel>
               </Transition.Child>

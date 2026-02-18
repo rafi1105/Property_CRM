@@ -5,7 +5,6 @@ import { dashboardAPI, propertyAPI, visitAPI, customerAPI } from '../utils/api';
 import { formatDate } from '../utils/dateFormat';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../components/DashboardLayout';
-import { locationData } from '../data/locations';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import {
@@ -52,8 +51,7 @@ const AdminDashboard = () => {
   const [visitCodeFilter, setVisitCodeFilter] = useState('');
   
   // Record Visit filters
-  const [selectedZone, setSelectedZone] = useState('');
-  const [selectedThana, setSelectedThana] = useState('');
+  const [visitStatusFilter, setVisitStatusFilter] = useState('');
   
   // Recent Visits filters
   const [visitAgentFilter, setVisitAgentFilter] = useState('all');
@@ -219,20 +217,15 @@ const AdminDashboard = () => {
       nextFollowUp: '',
       followUpAction: ''
     });
-    setSelectedZone('');
-    setSelectedThana('');
+    setVisitStatusFilter('');
   };
   
-  // Get filtered customers based on zone and thana
+  // Get filtered customers based on status
   const getFilteredCustomers = () => {
     let filtered = customers.filter(customer => customer.assignedAgent);
     
-    if (selectedZone) {
-      filtered = filtered.filter(c => c.zone === selectedZone);
-    }
-    
-    if (selectedThana) {
-      filtered = filtered.filter(c => c.thana === selectedThana);
+    if (visitStatusFilter) {
+      filtered = filtered.filter(c => c.status === visitStatusFilter);
     }
     
     return filtered;
@@ -280,11 +273,6 @@ const AdminDashboard = () => {
   };
   
   // Get available thanas for selected zone
-  const getAvailableThanas = () => {
-    if (!selectedZone || !locationData[selectedZone]) return [];
-    return Object.keys(locationData[selectedZone]);
-  };
-
   const handleAddUser = async (e) => {
     e.preventDefault();
     try {
@@ -1053,51 +1041,57 @@ const AdminDashboard = () => {
                   </div>
 
                   <form onSubmit={handleAddVisit} className="space-y-4">
-                    {/* Zone and Thana Filters */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-purple-50 rounded-xl border border-purple-200">
-                      <div>
-                        <label className="block text-sm font-medium text-purple-900 mb-2">Filter by Zone</label>
-                        <select
-                          value={selectedZone}
-                          onChange={(e) => {
-                            setSelectedZone(e.target.value);
-                            setSelectedThana('');
-                          }}
-                          className="w-full px-4 py-3 bg-white border border-purple-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                    {/* Customer Status Filter */}
+                    <div className="p-4 bg-purple-50 rounded-xl border border-purple-200">
+                      <label className="block text-sm font-medium text-purple-900 mb-2">Filter by Customer Status</label>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setVisitStatusFilter('')}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                            visitStatusFilter === '' ? 'bg-purple-600 text-white' : 'bg-white text-gray-600 border border-purple-200 hover:bg-purple-100'
+                          }`}
                         >
-                          <option value="">All Zones</option>
-                          {Object.keys(locationData).map(zone => (
-                            <option key={zone} value={zone}>{zone}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-purple-900 mb-2">Filter by Thana</label>
-                        <select
-                          value={selectedThana}
-                          onChange={(e) => setSelectedThana(e.target.value)}
-                          disabled={!selectedZone}
-                          className="w-full px-4 py-3 bg-white border border-purple-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                          All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setVisitStatusFilter('new')}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                            visitStatusFilter === 'new' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border border-purple-200 hover:bg-blue-50'
+                          }`}
                         >
-                          <option value="">All Thanas</option>
-                          {getAvailableThanas().map(thana => (
-                            <option key={thana} value={thana}>{thana}</option>
-                          ))}
-                        </select>
+                          New
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setVisitStatusFilter('interested')}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                            visitStatusFilter === 'interested' ? 'bg-green-600 text-white' : 'bg-white text-gray-600 border border-purple-200 hover:bg-green-50'
+                          }`}
+                        >
+                          Interested
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setVisitStatusFilter('visit-possible')}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                            visitStatusFilter === 'visit-possible' ? 'bg-orange-600 text-white' : 'bg-white text-gray-600 border border-purple-200 hover:bg-orange-50'
+                          }`}
+                        >
+                          Visit Possible
+                        </button>
                       </div>
+                      {visitStatusFilter && (
+                        <p className="mt-2 text-xs text-purple-600">
+                          Showing {getFilteredCustomers().length} customers
+                        </p>
+                      )}
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Customer * 
-                          {(selectedZone || selectedThana) && (
-                            <span className="ml-2 text-xs text-purple-600">
-                              ({getFilteredCustomers().length} customers)
-                            </span>
-                          )}
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Customer *</label>
                         <select
                           required
                           value={visitForm.customerId}
@@ -1107,7 +1101,7 @@ const AdminDashboard = () => {
                           <option value="">Select Customer</option>
                           {getFilteredCustomers().map(customer => (
                             <option key={customer._id} value={customer._id}>
-                              {customer.name} - {customer.phone} | {customer.zone || 'N/A'} | {customer.thana || 'N/A'}
+                              {customer.name} - {customer.phone} {customer.status ? `(${customer.status})` : ''}
                             </option>
                           ))}
                         </select>
