@@ -76,6 +76,18 @@ const CustomerDetails = () => {
   const [editingNote, setEditingNote] = useState(null);
   const [editNoteText, setEditNoteText] = useState('');
   const [editNoteFollowUpDate, setEditNoteFollowUpDate] = useState('');
+  
+  // Note filters
+  const [noteFilterAuthor, setNoteFilterAuthor] = useState('all');
+  const [noteFilterFollowUp, setNoteFilterFollowUp] = useState('all'); // all, with-followup, missed, upcoming
+  const [noteFilterDateFrom, setNoteFilterDateFrom] = useState('');
+  const [noteFilterDateTo, setNoteFilterDateTo] = useState('');
+  
+  // Visit filters
+  const [visitFilterAgent, setVisitFilterAgent] = useState('all');
+  const [visitFilterStatus, setVisitFilterStatus] = useState('all');
+  const [visitFilterDateFrom, setVisitFilterDateFrom] = useState('');
+  const [visitFilterDateTo, setVisitFilterDateTo] = useState('');
 
   useEffect(() => {
     fetchCustomer();
@@ -230,6 +242,108 @@ const CustomerDetails = () => {
     setEditingNote(null);
     setEditNoteText('');
     setEditNoteFollowUpDate('');
+  };
+
+  // Filter notes based on filters
+  const filterNotes = (notes) => {
+    if (!notes || !Array.isArray(notes)) return [];
+    
+    return notes.filter(note => {
+      // Filter by author
+      if (noteFilterAuthor !== 'all' && note.addedBy?._id !== noteFilterAuthor) {
+        return false;
+      }
+      
+      // Filter by follow-up status
+      if (noteFilterFollowUp === 'with-followup' && !note.nextFollowUpDate) {
+        return false;
+      }
+      if (noteFilterFollowUp === 'missed' && (!note.nextFollowUpDate || new Date(note.nextFollowUpDate) >= new Date())) {
+        return false;
+      }
+      if (noteFilterFollowUp === 'upcoming' && (!note.nextFollowUpDate || new Date(note.nextFollowUpDate) < new Date())) {
+        return false;
+      }
+      
+      // Filter by date range
+      const noteDate = new Date(note.addedAt || note.createdAt);
+      if (noteFilterDateFrom && noteDate < new Date(noteFilterDateFrom)) {
+        return false;
+      }
+      if (noteFilterDateTo && noteDate > new Date(noteFilterDateTo + 'T23:59:59')) {
+        return false;
+      }
+      
+      return true;
+    });
+  };
+
+  // Filter visits based on filters
+  const filterVisits = (visitList) => {
+    if (!visitList || !Array.isArray(visitList)) return [];
+    
+    return visitList.filter(visit => {
+      // Filter by agent
+      if (visitFilterAgent !== 'all' && visit.agent?._id !== visitFilterAgent) {
+        return false;
+      }
+      
+      // Filter by status
+      if (visitFilterStatus !== 'all' && visit.status !== visitFilterStatus) {
+        return false;
+      }
+      
+      // Filter by date range
+      const visitDate = new Date(visit.visitDate);
+      if (visitFilterDateFrom && visitDate < new Date(visitFilterDateFrom)) {
+        return false;
+      }
+      if (visitFilterDateTo && visitDate > new Date(visitFilterDateTo + 'T23:59:59')) {
+        return false;
+      }
+      
+      return true;
+    });
+  };
+
+  // Get unique authors from notes
+  const getUniqueAuthors = () => {
+    if (!customer?.notes) return [];
+    const authors = customer.notes
+      .map(note => note.addedBy)
+      .filter(Boolean)
+      .filter((author, index, self) => 
+        index === self.findIndex(a => a._id === author._id)
+      );
+    return authors;
+  };
+
+  // Get unique agents from visits
+  const getUniqueVisitAgents = () => {
+    if (!visits) return [];
+    const agents = visits
+      .map(visit => visit.agent)
+      .filter(Boolean)
+      .filter((agent, index, self) => 
+        index === self.findIndex(a => a._id === agent._id)
+      );
+    return agents;
+  };
+
+  // Reset note filters
+  const resetNoteFilters = () => {
+    setNoteFilterAuthor('all');
+    setNoteFilterFollowUp('all');
+    setNoteFilterDateFrom('');
+    setNoteFilterDateTo('');
+  };
+
+  // Reset visit filters
+  const resetVisitFilters = () => {
+    setVisitFilterAgent('all');
+    setVisitFilterStatus('all');
+    setVisitFilterDateFrom('');
+    setVisitFilterDateTo('');
   };
 
   // Quick status change handler
@@ -696,10 +810,81 @@ const CustomerDetails = () => {
                   </div>
                 </div>
 
+                {/* Note Filters */}
+                <div className="mb-4 bg-gray-50 rounded-xl p-3 sm:p-4 border border-gray-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xs sm:text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                      </svg>
+                      Filter Notes
+                    </h3>
+                    <button
+                      onClick={resetNoteFilters}
+                      className="text-xs text-purple-600 hover:text-purple-700 font-medium"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+                    {/* Author filter */}
+                    <div>
+                      <label className="text-[10px] sm:text-xs text-gray-600 mb-1 block">Author</label>
+                      <select
+                        value={noteFilterAuthor}
+                        onChange={(e) => setNoteFilterAuthor(e.target.value)}
+                        className="w-full px-2 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                      >
+                        <option value="all">All Authors</option>
+                        {getUniqueAuthors().map(author => (
+                          <option key={author._id} value={author._id}>{author.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {/* Follow-up status filter */}
+                    <div>
+                      <label className="text-[10px] sm:text-xs text-gray-600 mb-1 block">Follow-up</label>
+                      <select
+                        value={noteFilterFollowUp}
+                        onChange={(e) => setNoteFilterFollowUp(e.target.value)}
+                        className="w-full px-2 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                      >
+                        <option value="all">All Notes</option>
+                        <option value="with-followup">With Follow-up</option>
+                        <option value="missed">Missed Follow-up</option>
+                        <option value="upcoming">Upcoming Follow-up</option>
+                      </select>
+                    </div>
+                    {/* Date from filter */}
+                    <div>
+                      <label className="text-[10px] sm:text-xs text-gray-600 mb-1 block">From Date</label>
+                      <input
+                        type="date"
+                        value={noteFilterDateFrom}
+                        onChange={(e) => setNoteFilterDateFrom(e.target.value)}
+                        className="w-full px-2 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                      />
+                    </div>
+                    {/* Date to filter */}
+                    <div>
+                      <label className="text-[10px] sm:text-xs text-gray-600 mb-1 block">To Date</label>
+                      <input
+                        type="date"
+                        value={noteFilterDateTo}
+                        onChange={(e) => setNoteFilterDateTo(e.target.value)}
+                        className="w-full px-2 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-2 text-[10px] text-gray-500">
+                    Showing {filterNotes(customer.notes || []).length} of {customer.notes?.length || 0} notes
+                  </div>
+                </div>
+
                 {/* Notes Timeline - Modern Chat Style */}
                 <div className="space-y-3 sm:space-y-4 max-h-[400px] sm:max-h-[500px] overflow-y-auto pr-1 sm:pr-2 scrollbar-thin">
-                  {customer.notes?.length > 0 ? (
-                    customer.notes
+                  {filterNotes(customer.notes || []).length > 0 ? (
+                    filterNotes(customer.notes || [])
                       .slice()
                       .sort((a, b) => new Date(b.addedAt || b.createdAt) - new Date(a.addedAt || a.createdAt))
                       .map((note, index) => {
@@ -874,14 +1059,84 @@ const CustomerDetails = () => {
                       <span className="sm:hidden">Visits</span>
                     </h2>
                     <span className="px-2 sm:px-3 py-0.5 sm:py-1 bg-white/20 text-white rounded-full text-xs sm:text-sm font-medium">
-                      {visits.length} visits
+                      {filterVisits(visits).length} of {visits.length} visits
                     </span>
                   </div>
                 </div>
                 <div className="p-4 sm:p-6">
-                  {visits.length > 0 ? (
+                  {/* Visit Filters */}
+                  {visits.length > 0 && (
+                    <div className="mb-4 bg-gray-50 rounded-xl p-3 sm:p-4 border border-gray-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-xs sm:text-sm font-semibold text-gray-700 flex items-center gap-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                          </svg>
+                          Filter Visits
+                        </h3>
+                        <button
+                          onClick={resetVisitFilters}
+                          className="text-xs text-green-600 hover:text-green-700 font-medium"
+                        >
+                          Reset
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+                        {/* Agent filter */}
+                        <div>
+                          <label className="text-[10px] sm:text-xs text-gray-600 mb-1 block">Agent</label>
+                          <select
+                            value={visitFilterAgent}
+                            onChange={(e) => setVisitFilterAgent(e.target.value)}
+                            className="w-full px-2 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
+                          >
+                            <option value="all">All Agents</option>
+                            {getUniqueVisitAgents().map(agent => (
+                              <option key={agent._id} value={agent._id}>{agent.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        {/* Status filter */}
+                        <div>
+                          <label className="text-[10px] sm:text-xs text-gray-600 mb-1 block">Status</label>
+                          <select
+                            value={visitFilterStatus}
+                            onChange={(e) => setVisitFilterStatus(e.target.value)}
+                            className="w-full px-2 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
+                          >
+                            <option value="all">All Status</option>
+                            <option value="scheduled">Scheduled</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                            <option value="pending">Pending</option>
+                          </select>
+                        </div>
+                        {/* Date from filter */}
+                        <div>
+                          <label className="text-[10px] sm:text-xs text-gray-600 mb-1 block">From Date</label>
+                          <input
+                            type="date"
+                            value={visitFilterDateFrom}
+                            onChange={(e) => setVisitFilterDateFrom(e.target.value)}
+                            className="w-full px-2 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
+                          />
+                        </div>
+                        {/* Date to filter */}
+                        <div>
+                          <label className="text-[10px] sm:text-xs text-gray-600 mb-1 block">To Date</label>
+                          <input
+                            type="date"
+                            value={visitFilterDateTo}
+                            onChange={(e) => setVisitFilterDateTo(e.target.value)}
+                            className="w-full px-2 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {filterVisits(visits).length > 0 ? (
                     <div className="space-y-3 sm:space-y-4 max-h-[350px] sm:max-h-[400px] overflow-y-auto pr-1 sm:pr-2">
-                      {visits
+                      {filterVisits(visits)
                         .slice()
                         .sort((a, b) => new Date(b.visitDate) - new Date(a.visitDate))
                         .map((visit, index) => (
@@ -892,7 +1147,14 @@ const CustomerDetails = () => {
                                   {visit.agent?.name?.charAt(0)?.toUpperCase() || 'A'}
                                 </div>
                                 <div className="min-w-0">
-                                  <p className="font-semibold text-gray-900 text-sm sm:text-base truncate">{visit.agent?.name || 'Unknown Agent'}</p>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="font-semibold text-gray-900 text-sm sm:text-base truncate">{visit.agent?.name || 'Unknown Agent'}</p>
+                                    {visit.visitCode && (
+                                      <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[10px] sm:text-xs font-mono font-semibold">
+                                        {visit.visitCode}
+                                      </span>
+                                    )}
+                                  </div>
                                   <p className="text-[10px] sm:text-xs text-gray-500">
                                     {formatDateWithWeekday(visit.visitDate)}
                                   </p>

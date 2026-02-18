@@ -26,11 +26,11 @@ router.post('/', authenticate, agentAndAbove, [
 // Zonal Agent routes
 router.get('/zone', authenticate, agentAndAbove, getReportsByZone);
 
-// Super Admin only routes
-router.get('/', authenticate, superAdminOnly, getAllReports);
-router.get('/stats', authenticate, superAdminOnly, getReportStats);
+// Admin and Super Admin routes
+router.get('/', authenticate, adminOnly, getAllReports);
+router.get('/stats', authenticate, adminOnly, getReportStats);
 router.get('/:id', authenticate, agentAndAbove, getReportById);
-router.patch('/:id/review', authenticate, superAdminOnly, reviewReport);
-router.delete('/:id', authenticate, superAdminOnly, deleteReport);
+router.patch('/:id/review', authenticate, adminOnly, reviewReport);
+router.delete('/:id', authenticate, adminOnly, deleteReport);
 
 export default router;

@@ -84,6 +84,9 @@ const CustomerManagement = () => {
   const [filterThana, setFilterThana] = useState('all');
   const [customerScope, setCustomerScope] = useState('own');
   const [sourceFilter, setSourceFilter] = useState('all'); // 'all', 'assigned', 'self-added', 'agent-added'
+  const [filterFollowUpDate, setFilterFollowUpDate] = useState('all'); // 'all', 'overdue', 'today', 'week', 'upcoming', 'none'
+  const [filterFollowUpDateFrom, setFilterFollowUpDateFrom] = useState('');
+  const [filterFollowUpDateTo, setFilterFollowUpDateTo] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
   const [newNote, setNewNote] = useState('');
@@ -143,7 +146,7 @@ const CustomerManagement = () => {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterPriority, filterStatus, filterAgent, filterZone, filterThana, customerScope, sourceFilter]);
+  }, [searchTerm, filterPriority, filterStatus, filterAgent, filterZone, filterThana, customerScope, sourceFilter, filterFollowUpDate, filterFollowUpDateFrom, filterFollowUpDateTo]);
 
   // Handle edit query parameter from CustomerDetails page
   useEffect(() => {
@@ -283,7 +286,43 @@ const CustomerManagement = () => {
     const matchesZone = filterZone === 'all' || customer.customerZone === filterZone;
     const matchesThana = filterThana === 'all' || customer.customerThana === filterThana;
 
-    return matchesSearch && matchesStatus && matchesPriority && matchesAgent && matchesZone && matchesThana;
+    // Follow-up Date Filtering
+    let matchesFollowUp = true;
+    if (filterFollowUpDate !== 'all') {
+      const followUpDate = customer.nextFollowUpDate ? new Date(customer.nextFollowUpDate) : null;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (filterFollowUpDate === 'none') {
+        matchesFollowUp = !followUpDate;
+      } else if (filterFollowUpDate === 'overdue') {
+        matchesFollowUp = followUpDate && followUpDate < today;
+      } else if (filterFollowUpDate === 'today') {
+        const todayEnd = new Date(today);
+        todayEnd.setHours(23, 59, 59, 999);
+        matchesFollowUp = followUpDate && followUpDate >= today && followUpDate <= todayEnd;
+      } else if (filterFollowUpDate === 'week') {
+        const weekEnd = new Date(today);
+        weekEnd.setDate(weekEnd.getDate() + 7);
+        matchesFollowUp = followUpDate && followUpDate >= today && followUpDate <= weekEnd;
+      } else if (filterFollowUpDate === 'upcoming') {
+        matchesFollowUp = followUpDate && followUpDate >= today;
+      }
+    }
+
+    // Follow-up Date Range Filtering
+    if (filterFollowUpDateFrom && customer.nextFollowUpDate) {
+      const followUpDate = new Date(customer.nextFollowUpDate);
+      const fromDate = new Date(filterFollowUpDateFrom);
+      if (followUpDate < fromDate) matchesFollowUp = false;
+    }
+    if (filterFollowUpDateTo && customer.nextFollowUpDate) {
+      const followUpDate = new Date(customer.nextFollowUpDate);
+      const toDate = new Date(filterFollowUpDateTo + 'T23:59:59');
+      if (followUpDate > toDate) matchesFollowUp = false;
+    }
+
+    return matchesSearch && matchesStatus && matchesPriority && matchesAgent && matchesZone && matchesThana && matchesFollowUp;
   });
 
   // Pagination
@@ -552,7 +591,7 @@ const CustomerManagement = () => {
     'closed': 'bg-gray-100 text-gray-700'
   };
 
-  const hasActiveFilters = searchTerm || filterStatus !== 'all' || filterPriority !== 'all' || filterAgent !== 'all' || filterZone !== 'all' || filterThana !== 'all';
+  const hasActiveFilters = searchTerm || filterStatus !== 'all' || filterPriority !== 'all' || filterAgent !== 'all' || filterZone !== 'all' || filterThana !== 'all' || filterFollowUpDate !== 'all' || filterFollowUpDateFrom || filterFollowUpDateTo;
 
   const clearAllFilters = () => {
     setSearchTerm('');
@@ -561,6 +600,9 @@ const CustomerManagement = () => {
     setFilterAgent('all');
     setFilterZone('all');
     setFilterThana('all');
+    setFilterFollowUpDate('all');
+    setFilterFollowUpDateFrom('');
+    setFilterFollowUpDateTo('');
   };
 
   return (
@@ -588,32 +630,7 @@ const CustomerManagement = () => {
               </button>
             </div>
 
-            {/* Customer Source Filter for Agents */}
-            {user?.role === 'agent' && (
-              <div className="flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden text-xs sm:text-sm">
-                <button
-                  onClick={() => { setSourceFilter('all'); }}
-                  className={`px-2 sm:px-4 py-2 sm:py-2.5 font-medium transition-colors ${sourceFilter === 'all' ? 'bg-purple-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
-                >
-                  All
-                </button>
-                <button
-                  onClick={() => { setSourceFilter('assigned'); }}
-                  className={`px-2 sm:px-4 py-2 sm:py-2.5 font-medium transition-colors ${sourceFilter === 'assigned' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
-                >
-                  Assigned
-                </button>
-                <button
-                  onClick={() => { setSourceFilter('self-added'); }}
-                  className={`px-2 sm:px-4 py-2 sm:py-2.5 font-medium transition-colors ${sourceFilter === 'self-added' ? 'bg-green-600 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
-                >
-                  <span className="hidden sm:inline">Self Added</span>
-                  <span className="sm:hidden">Self</span>
-                </button>
-              </div>
-            )}
-
-            {/* Customer Scope Toggle for Super Admin */}
+            {/* Customer Source Filter - Super Admin Only */}
             {user?.role === 'super_admin' && (
               <div className="flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden text-xs sm:text-sm">
                 <button
@@ -729,6 +746,44 @@ const CustomerManagement = () => {
               <option key={thana} value={thana}>{thana}</option>
             ))}
           </select>
+
+          {/* Follow-up Status Filter */}
+          <select
+            value={filterFollowUpDate}
+            onChange={(e) => setFilterFollowUpDate(e.target.value)}
+            className="px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-700 text-xs sm:text-sm flex-shrink-0"
+          >
+            <option value="all">Follow-up Status</option>
+            <option value="overdue">Overdue</option>
+            <option value="today">Due Today</option>
+            <option value="week">Due This Week</option>
+            <option value="upcoming">Upcoming</option>
+            <option value="none">No Follow-up</option>
+          </select>
+
+          {/* Follow-up Date From */}
+          <div className="flex items-center gap-1 px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-xl flex-shrink-0">
+            <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
+            <input
+              type="date"
+              value={filterFollowUpDateFrom}
+              onChange={(e) => setFilterFollowUpDateFrom(e.target.value)}
+              placeholder="From"
+              className="bg-transparent border-0 text-xs sm:text-sm text-gray-700 focus:outline-none w-24 sm:w-28"
+            />
+          </div>
+
+          {/* Follow-up Date To */}
+          <div className="flex items-center gap-1 px-2 sm:px-3 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-xl flex-shrink-0">
+            <CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
+            <input
+              type="date"
+              value={filterFollowUpDateTo}
+              onChange={(e) => setFilterFollowUpDateTo(e.target.value)}
+              placeholder="To"
+              className="bg-transparent border-0 text-xs sm:text-sm text-gray-700 focus:outline-none w-24 sm:w-28"
+            />
+          </div>
         </div>
 
         {/* Active Filters Display */}
@@ -779,6 +834,34 @@ const CustomerManagement = () => {
               <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 bg-cyan-100 text-cyan-800 rounded-full text-xs font-medium">
                 {filterThana}
                 <button onClick={() => setFilterThana('all')} className="hover:text-cyan-900">
+                  <XMarkIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                </button>
+              </span>
+            )}
+            {filterFollowUpDate !== 'all' && (
+              <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium">
+                {filterFollowUpDate === 'overdue' ? 'Overdue' : 
+                 filterFollowUpDate === 'today' ? 'Due Today' : 
+                 filterFollowUpDate === 'week' ? 'Due This Week' : 
+                 filterFollowUpDate === 'upcoming' ? 'Upcoming' : 
+                 'No Follow-up'}
+                <button onClick={() => setFilterFollowUpDate('all')} className="hover:text-indigo-900">
+                  <XMarkIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                </button>
+              </span>
+            )}
+            {filterFollowUpDateFrom && (
+              <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 bg-pink-100 text-pink-800 rounded-full text-xs font-medium">
+                From: {formatDateShort(filterFollowUpDateFrom)}
+                <button onClick={() => setFilterFollowUpDateFrom('')} className="hover:text-pink-900">
+                  <XMarkIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                </button>
+              </span>
+            )}
+            {filterFollowUpDateTo && (
+              <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 bg-pink-100 text-pink-800 rounded-full text-xs font-medium">
+                To: {formatDateShort(filterFollowUpDateTo)}
+                <button onClick={() => setFilterFollowUpDateTo('')} className="hover:text-pink-900">
                   <XMarkIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 </button>
               </span>
@@ -1519,34 +1602,72 @@ const CustomerManagement = () => {
                             </select>
                           </div>
                         </div>
-                        {user?.role !== 'agent' && (
+                        {/* Agent/Admin Assignment Section */}
+                        {user?.role === 'agent' ? (
+                          // Agent can assign customer to themselves
+                          <div className="flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-xl p-3">
+                            <input
+                              type="checkbox"
+                              id="assignToSelf"
+                              checked={formData.assignedAgent === user._id}
+                              onChange={(e) => {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  assignedAgent: e.target.checked ? user._id : ''
+                                }));
+                              }}
+                              className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                            />
+                            <label htmlFor="assignToSelf" className="text-sm font-medium text-gray-700 cursor-pointer">
+                              Assign this customer to me
+                            </label>
+                          </div>
+                        ) : (
+                          // Admin/Super Admin can select from dropdown
                           <>
-                            <select
-                              name="assignedAgent"
-                              value={formData.assignedAgent}
-                              onChange={handleInputChange}
-                              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
-                            >
-                              <option value="">
-                                {formData.customerZone ? 'Select Agent' : 'Select Agent (or choose zone first)'}
-                              </option>
-                              {agents
-                                .filter(agent => 
-                                  agent.isActive !== false && 
-                                  (!formData.customerZone || agent.assignedZone === formData.customerZone) &&
-                                  (!formData.customerThana || agent.assignedThana === formData.customerThana)
-                                )
-                                .map(agent => (
-                                  <option key={agent._id} value={agent._id}>
-                                    {agent.name} {agent.assignedZone ? `(${agent.assignedZone}${agent.assignedThana ? ` - ${agent.assignedThana}` : ''})` : ''}
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <select
+                                  name="assignedAgent"
+                                  value={formData.assignedAgent}
+                                  onChange={handleInputChange}
+                                  className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                                >
+                                  <option value="">
+                                    {formData.customerZone ? 'Select Agent' : 'Select Agent (or choose zone first)'}
                                   </option>
-                                ))}
-                            </select>
-                            {formData.customerZone && (
-                              <p className="text-xs text-gray-500 mt-1">
-                                Showing agents in: {formData.customerZone}{formData.customerThana ? ` - ${formData.customerThana}` : ''}
-                              </p>
-                            )}
+                                  {agents
+                                    .filter(agent => 
+                                      agent.isActive !== false && 
+                                      (!formData.customerZone || agent.assignedZone === formData.customerZone) &&
+                                      (!formData.customerThana || agent.assignedThana === formData.customerThana)
+                                    )
+                                    .map(agent => (
+                                      <option key={agent._id} value={agent._id}>
+                                        {agent.name} {agent.assignedZone ? `(${agent.assignedZone}${agent.assignedThana ? ` - ${agent.assignedThana}` : ''})` : ''}
+                                      </option>
+                                    ))}
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      assignedAgent: user._id
+                                    }));
+                                  }}
+                                  className="px-4 py-3 bg-purple-100 text-purple-700 rounded-xl hover:bg-purple-200 font-medium whitespace-nowrap transition-colors"
+                                  title="Assign to myself"
+                                >
+                                  Assign to Me
+                                </button>
+                              </div>
+                              {formData.customerZone && (
+                                <p className="text-xs text-gray-500">
+                                  Showing agents in: {formData.customerZone}{formData.customerThana ? ` - ${formData.customerThana}` : ''}
+                                </p>
+                              )}
+                            </div>
                           </>
                         )}
                       </div>

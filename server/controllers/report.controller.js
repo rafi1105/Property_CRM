@@ -69,9 +69,9 @@ export const createReport = async (req, res) => {
   }
 };
 
-// @desc    Get all reports (Super Admin only)
+// @desc    Get all reports (Admin and Super Admin)
 // @route   GET /api/reports
-// @access  Super Admin
+// @access  Admin/Super Admin
 export const getAllReports = async (req, res) => {
   try {
     const {
@@ -300,9 +300,9 @@ export const getReportById = async (req, res) => {
   }
 };
 
-// @desc    Review/Acknowledge report (Super Admin)
+// @desc    Review/Acknowledge report (Admin and Super Admin)
 // @route   PATCH /api/reports/:id/review
-// @access  Super Admin
+// @access  Admin/Super Admin
 export const reviewReport = async (req, res) => {
   try {
     const { status, reviewNotes } = req.body;
@@ -345,7 +345,7 @@ export const reviewReport = async (req, res) => {
 
 // @desc    Delete report
 // @route   DELETE /api/reports/:id
-// @access  Super Admin
+// @access  Admin/Super Admin
 export const deleteReport = async (req, res) => {
   try {
     const report = await Report.findById(req.params.id);
@@ -375,7 +375,7 @@ export const deleteReport = async (req, res) => {
 
 // @desc    Get report statistics
 // @route   GET /api/reports/stats
-// @access  Super Admin
+// @access  Admin/Super Admin
 export const getReportStats = async (req, res) => {
   try {
     const today = new Date();

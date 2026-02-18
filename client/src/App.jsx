@@ -30,6 +30,12 @@ function App() {
         path="/" 
         element={isAuthenticated ? <Navigate to={getDefaultRedirect()} replace /> : <AdminLogin />} 
       />
+      
+      {/* Admin Login route */}
+      <Route 
+        path="/admin-login" 
+        element={isAuthenticated ? <Navigate to={getDefaultRedirect()} replace /> : <AdminLogin />} 
+      />
 
       {/* Dashboard routes */}
       <Route 
@@ -159,7 +165,7 @@ function App() {
       <Route 
         path="/dashboard/reports" 
         element={
-          <ProtectedRoute allowedRoles={['super_admin', 'agent']}>
+          <ProtectedRoute allowedRoles={['super_admin', 'admin', 'agent']}>
             <Reports />
           </ProtectedRoute>
         } 

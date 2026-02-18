@@ -5,6 +5,7 @@ import { dashboardAPI, propertyAPI, visitAPI, customerAPI } from '../utils/api';
 import { formatDate } from '../utils/dateFormat';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../components/DashboardLayout';
+import { locationData } from '../data/locations';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import {
@@ -48,6 +49,16 @@ const AdminDashboard = () => {
   const [dueFollowUps, setDueFollowUps] = useState([]);
   const [ownCustomersCount, setOwnCustomersCount] = useState(0);
   const [customers, setCustomers] = useState([]);
+  const [visitCodeFilter, setVisitCodeFilter] = useState('');
+  
+  // Record Visit filters
+  const [selectedZone, setSelectedZone] = useState('');
+  const [selectedThana, setSelectedThana] = useState('');
+  
+  // Recent Visits filters
+  const [visitAgentFilter, setVisitAgentFilter] = useState('all');
+  const [visitDateFrom, setVisitDateFrom] = useState('');
+  const [visitDateTo, setVisitDateTo] = useState('');
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
@@ -208,6 +219,70 @@ const AdminDashboard = () => {
       nextFollowUp: '',
       followUpAction: ''
     });
+    setSelectedZone('');
+    setSelectedThana('');
+  };
+  
+  // Get filtered customers based on zone and thana
+  const getFilteredCustomers = () => {
+    let filtered = customers.filter(customer => customer.assignedAgent);
+    
+    if (selectedZone) {
+      filtered = filtered.filter(c => c.zone === selectedZone);
+    }
+    
+    if (selectedThana) {
+      filtered = filtered.filter(c => c.thana === selectedThana);
+    }
+    
+    return filtered;
+  };
+  
+  // Get unique agents from visits
+  const getUniqueAgents = () => {
+    const agentMap = new Map();
+    visits.forEach(visit => {
+      if (visit.agent && visit.agent._id) {
+        agentMap.set(visit.agent._id, visit.agent);
+      }
+    });
+    return Array.from(agentMap.values());
+  };
+  
+  // Filter visits based on agent and date
+  const getFilteredVisits = () => {
+    return visits.filter(visit => {
+      // Agent filter
+      if (visitAgentFilter !== 'all' && visit.agent?._id !== visitAgentFilter) {
+        return false;
+      }
+      
+      // Date from filter
+      if (visitDateFrom && new Date(visit.visitDate) < new Date(visitDateFrom)) {
+        return false;
+      }
+      
+      // Date to filter
+      if (visitDateTo && new Date(visit.visitDate) > new Date(visitDateTo)) {
+        return false;
+      }
+      
+      // Code filter
+      if (visitCodeFilter) {
+        const propertyCode = visit.property?.uniqueCode || visit.property?.code || '';
+        const visitCode = visit.visitCode || '';
+        return propertyCode.toLowerCase().includes(visitCodeFilter.toLowerCase()) ||
+               visitCode.toLowerCase().includes(visitCodeFilter.toLowerCase());
+      }
+      
+      return true;
+    });
+  };
+  
+  // Get available thanas for selected zone
+  const getAvailableThanas = () => {
+    if (!selectedZone || !locationData[selectedZone]) return [];
+    return Object.keys(locationData[selectedZone]);
   };
 
   const handleAddUser = async (e) => {
@@ -472,63 +547,168 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Recent Visits List */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100">
-            <h3 className="font-semibold text-gray-900">Recent Visits</h3>
+        {/* Recent Visits List - Super Admin Only */}
+        {user?.role === 'super_admin' && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100">
+              <h3 className="font-semibold text-gray-900 mb-4">Recent Visits - Visit Done</h3>
+            
+            {/* Filters */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+              {/* Agent Filter */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">Agent</label>
+                <select
+                  value={visitAgentFilter}
+                  onChange={(e) => setVisitAgentFilter(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                >
+                  <option value="all">All Agents</option>
+                  {getUniqueAgents().map(agent => (
+                    <option key={agent._id} value={agent._id}>{agent.name}</option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* Date From */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">From Date</label>
+                <input
+                  type="date"
+                  value={visitDateFrom}
+                  onChange={(e) => setVisitDateFrom(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                />
+              </div>
+              
+              {/* Date To */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">To Date</label>
+                <input
+                  type="date"
+                  value={visitDateTo}
+                  onChange={(e) => setVisitDateTo(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                />
+              </div>
+              
+              {/* Code Search */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">Search Code</label>
+                <input
+                  type="text"
+                  value={visitCodeFilter}
+                  onChange={(e) => setVisitCodeFilter(e.target.value)}
+                  placeholder="Visit/Property code..."
+                  className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                />
+              </div>
+            </div>
+            
+            {/* Clear Filters Button */}
+            {(visitAgentFilter !== 'all' || visitDateFrom || visitDateTo || visitCodeFilter) && (
+              <button
+                onClick={() => {
+                  setVisitAgentFilter('all');
+                  setVisitDateFrom('');
+                  setVisitDateTo('');
+                  setVisitCodeFilter('');
+                }}
+                className="text-sm text-purple-600 hover:text-purple-700 font-medium"
+              >
+                Clear All Filters
+              </button>
+            )}
           </div>
-          <div className="divide-y divide-gray-100">
-            {visits.length > 0 ? (
-              visits.slice(0, 5).map((visit) => (
-                <div key={visit._id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900">{visit.customer?.name || 'Unknown Customer'}</h4>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {visit.property ? `Property: ${visit.property.name}` : 'No property specified'}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {formatDate(visit.visitDate)} - {visit.agent?.name || 'Unknown Agent'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        visit.status === 'completed' ? 'bg-green-100 text-green-700' :
-                        visit.status === 'scheduled' ? 'bg-blue-100 text-blue-700' :
-                        visit.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                        'bg-yellow-100 text-yellow-700'
-                      }`}>
-                        {visit.status}
-                      </span>
-                      {visit.customerInterest && (
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          visit.customerInterest === 'very_interested' ? 'bg-purple-100 text-purple-700' :
-                          visit.customerInterest === 'interested' ? 'bg-blue-100 text-blue-700' :
-                          visit.customerInterest === 'not_interested' ? 'bg-gray-100 text-gray-700' :
+          
+          {/* Visits Table */}
+          <div className="overflow-x-auto">
+            {getFilteredVisits().length > 0 ? (
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Serial No.</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Date</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Customer Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Visit Code</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Agent</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Status</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700">Details</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {getFilteredVisits().slice(0, 10).map((visit, index) => (
+                    <tr key={visit._id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3 text-sm text-gray-900 font-medium">{index + 1}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{formatDate(visit.visitDate)}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-gray-900">{visit.customer?.name || 'Unknown'}</span>
+                          <span className="text-xs text-gray-500">{visit.customer?.phone || 'N/A'}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {visit.visitCode ? (
+                          <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-mono font-semibold">
+                            {visit.visitCode}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">N/A</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{visit.agent?.name || 'Unknown'}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          visit.status === 'completed' ? 'bg-green-100 text-green-700' :
+                          visit.status === 'scheduled' ? 'bg-blue-100 text-blue-700' :
+                          visit.status === 'cancelled' ? 'bg-red-100 text-red-700' :
                           'bg-yellow-100 text-yellow-700'
                         }`}>
-                          {visit.customerInterest.replace('_', ' ')}
+                          {visit.status}
                         </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => navigate(`/dashboard/customers/${visit.customer?._id}`)}
+                          className="px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-xs font-medium transition-colors"
+                        >
+                          Details
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             ) : (
               <div className="px-6 py-12 text-center text-gray-400">
                 <CalendarDaysIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p>No visits recorded yet</p>
+                <p>No visits found</p>
+                {(visitAgentFilter !== 'all' || visitDateFrom || visitDateTo || visitCodeFilter) && (
+                  <button
+                    onClick={() => {
+                      setVisitAgentFilter('all');
+                      setVisitDateFrom('');
+                      setVisitDateTo('');
+                      setVisitCodeFilter('');
+                    }}
+                    className="mt-2 text-sm text-purple-600 hover:text-purple-700 font-medium"
+                  >
+                    Clear filters
+                  </button>
+                )}
               </div>
             )}
           </div>
-          {visits.length > 5 && (
-            <div className="px-6 py-3 bg-gray-50 text-center">
-              <button className="text-sm text-purple-600 hover:text-purple-700 font-medium">
-                View all visits →
-              </button>
+          
+          {getFilteredVisits().length > 10 && (
+            <div className="px-6 py-3 bg-gray-50 text-center border-t border-gray-200">
+              <p className="text-sm text-gray-600">
+                Showing 10 of {getFilteredVisits().length} visits
+              </p>
             </div>
           )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Charts Row */}
@@ -873,9 +1053,51 @@ const AdminDashboard = () => {
                   </div>
 
                   <form onSubmit={handleAddVisit} className="space-y-4">
+                    {/* Zone and Thana Filters */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-purple-50 rounded-xl border border-purple-200">
+                      <div>
+                        <label className="block text-sm font-medium text-purple-900 mb-2">Filter by Zone</label>
+                        <select
+                          value={selectedZone}
+                          onChange={(e) => {
+                            setSelectedZone(e.target.value);
+                            setSelectedThana('');
+                          }}
+                          className="w-full px-4 py-3 bg-white border border-purple-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                        >
+                          <option value="">All Zones</option>
+                          {Object.keys(locationData).map(zone => (
+                            <option key={zone} value={zone}>{zone}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-purple-900 mb-2">Filter by Thana</label>
+                        <select
+                          value={selectedThana}
+                          onChange={(e) => setSelectedThana(e.target.value)}
+                          disabled={!selectedZone}
+                          className="w-full px-4 py-3 bg-white border border-purple-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        >
+                          <option value="">All Thanas</option>
+                          {getAvailableThanas().map(thana => (
+                            <option key={thana} value={thana}>{thana}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Customer *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Customer * 
+                          {(selectedZone || selectedThana) && (
+                            <span className="ml-2 text-xs text-purple-600">
+                              ({getFilteredCustomers().length} customers)
+                            </span>
+                          )}
+                        </label>
                         <select
                           required
                           value={visitForm.customerId}
@@ -883,11 +1105,9 @@ const AdminDashboard = () => {
                           className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900"
                         >
                           <option value="">Select Customer</option>
-                          {customers
-                            .filter(customer => customer.assignedAgent)
-                            .map(customer => (
+                          {getFilteredCustomers().map(customer => (
                             <option key={customer._id} value={customer._id}>
-                              {customer.name} - {customer.phone} (Agent: {customer.assignedAgent?.name || 'Unknown'})
+                              {customer.name} - {customer.phone} | {customer.zone || 'N/A'} | {customer.thana || 'N/A'}
                             </option>
                           ))}
                         </select>
@@ -1086,7 +1306,7 @@ const AdminDashboard = () => {
                               <button
                                 onClick={() => {
                                   setShowFollowUpModal(false);
-                                  navigate('/dashboard/customers');
+                                  navigate(`/dashboard/customers/${customer._id}`);
                                 }}
                                 className="text-sm text-purple-600 hover:text-purple-800 font-medium"
                               >

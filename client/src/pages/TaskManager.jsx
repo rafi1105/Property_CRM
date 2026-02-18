@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { taskAPI, agentAPI, customerAPI, propertyAPI } from '../utils/api';
+import { taskAPI, agentAPI, customerAPI, propertyAPI, authAPI } from '../utils/api';
 import { formatDate } from '../utils/dateFormat';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../components/DashboardLayout';
+import { locationData } from '../data/locations';
 import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import {
@@ -31,6 +32,16 @@ const TaskManager = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [activeFilter, setActiveFilter] = useState('all');
+  
+  // Advanced filters
+  const [filterPriority, setFilterPriority] = useState('all');
+  const [filterType, setFilterType] = useState('all');
+  const [filterDueDateFrom, setFilterDueDateFrom] = useState('');
+  const [filterDueDateTo, setFilterDueDateTo] = useState('');
+  const [filterAssignedTo, setFilterAssignedTo] = useState('all');
+  const [filterZone, setFilterZone] = useState('all');
+  const [filterThana, setFilterThana] = useState('all');
+  const [showFilters, setShowFilters] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -69,8 +80,11 @@ const TaskManager = () => {
 
   const fetchAgents = async () => {
     try {
-      const response = await agentAPI.getAll();
-      setAgents(response.data?.agents || []);
+      const response = await authAPI.getAllUsers();
+      const agentUsers = (response.data.users || []).filter(
+        u => ['agent', 'admin', 'super_admin'].includes(u.role) && u.isActive !== false
+      );
+      setAgents(agentUsers);
     } catch (error) {
       console.error('Error fetching agents:', error);
     }
@@ -176,6 +190,118 @@ const TaskManager = () => {
     setShowEditModal(true);
   };
 
+  // Apply advanced filters to tasks
+  const applyAdvancedFilters = (taskList) => {
+    return taskList.filter(task => {
+      // Priority filter
+      if (filterPriority !== 'all' && task.priority !== filterPriority) {
+        return false;
+      }
+      
+      // Type filter
+      if (filterType !== 'all' && task.type !== filterType) {
+        return false;
+      }
+      
+      // Assigned to filter
+      if (filterAssignedTo !== 'all') {
+        if (filterAssignedTo === 'unassigned' && task.assignedTo) {
+          return false;
+        }
+        if (filterAssignedTo !== 'unassigned' && task.assignedTo?._id !== filterAssignedTo) {
+          return false;
+        }
+      }
+      
+      // Zone filter - check customer's zone
+      if (filterZone !== 'all') {
+        if (!task.customer || task.customer.zone !== filterZone) {
+          return false;
+        }
+      }
+      
+      // Thana filter - check customer's thana
+      if (filterThana !== 'all') {
+        if (!task.customer || task.customer.thana !== filterThana) {
+          return false;
+        }
+      }
+      
+      // Due date filter - date range
+      if ((filterDueDateFrom || filterDueDateTo) && task.dueDate) {
+        const taskDueDate = new Date(task.dueDate);
+        taskDueDate.setHours(0, 0, 0, 0);
+        
+        if (filterDueDateFrom) {
+          const fromDate = new Date(filterDueDateFrom);
+          fromDate.setHours(0, 0, 0, 0);
+          if (taskDueDate < fromDate) return false;
+        }
+        
+        if (filterDueDateTo) {
+          const toDate = new Date(filterDueDateTo);
+          toDate.setHours(23, 59, 59, 999);
+          if (taskDueDate > toDate) return false;
+        }
+      }
+      
+      return true;
+    });
+  };
+
+  // Reset all filters
+  const resetAllFilters = () => {
+    setActiveFilter('all');
+    setFilterPriority('all');
+    setFilterType('all');
+    setFilterDueDateFrom('');
+    setFilterDueDateTo('');
+    setFilterAssignedTo('all');
+    setFilterZone('all');
+    setFilterThana('all');
+  };
+  
+  // Get available thanas for selected zone
+  const getAvailableThanas = () => {
+    if (filterZone === 'all' || !locationData[filterZone]) return [];
+    return Object.keys(locationData[filterZone]);
+  };
+  
+  // Get zones assigned to the selected agent (from their customers)
+  const getAgentZones = () => {
+    if (filterAssignedTo === 'all' || filterAssignedTo === 'unassigned') {
+      return Object.keys(locationData);
+    }
+    
+    // Get unique zones from customers assigned to this agent
+    const agentCustomers = customers.filter(c => c.assignedAgent?._id === filterAssignedTo);
+    const zones = [...new Set(agentCustomers.map(c => c.zone).filter(Boolean))];
+    return zones;
+  };
+  
+  // Get thanas for selected agent and zone
+  const getAgentThanas = () => {
+    if (filterZone === 'all' || !locationData[filterZone]) return [];
+    
+    if (filterAssignedTo === 'all' || filterAssignedTo === 'unassigned') {
+      return Object.keys(locationData[filterZone]);
+    }
+    
+    // Get unique thanas from customers assigned to this agent in this zone
+    const agentCustomers = customers.filter(c => 
+      c.assignedAgent?._id === filterAssignedTo && c.zone === filterZone
+    );
+    const thanas = [...new Set(agentCustomers.map(c => c.thana).filter(Boolean))];
+    return thanas;
+  };
+
+  // Get filtered tasks
+  const filteredTasks = applyAdvancedFilters(tasks);
+
+  // Check if any advanced filter is active
+  const hasActiveFilters = filterPriority !== 'all' || filterType !== 'all' || 
+    filterDueDateFrom !== '' || filterDueDateTo !== '' || filterAssignedTo !== 'all' || filterZone !== 'all' || filterThana !== 'all';
+
   const filters = [
     { key: 'all', label: 'All Tasks', icon: ClipboardDocumentListIcon },
     { key: 'pending', label: 'Pending', icon: ClockIcon },
@@ -197,10 +323,10 @@ const TaskManager = () => {
   };
 
   const taskStats = {
-    total: tasks.length,
-    pending: tasks.filter(t => t.status === 'pending').length,
-    inProgress: tasks.filter(t => t.status === 'in_progress').length,
-    completed: tasks.filter(t => t.status === 'completed').length,
+    total: filteredTasks.length,
+    pending: filteredTasks.filter(t => t.status === 'pending').length,
+    inProgress: filteredTasks.filter(t => t.status === 'in_progress').length,
+    completed: filteredTasks.filter(t => t.status === 'completed').length,
   };
 
   return (
@@ -274,8 +400,26 @@ const TaskManager = () => {
           ))}
         </div>
 
-        {/* Add button */}
-        <div className="flex justify-end">
+        {/* Advanced Filters Toggle */}
+        <div className="flex items-center justify-between gap-2">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all text-xs sm:text-sm ${
+              showFilters || hasActiveFilters
+                ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            <span>Advanced Filters</span>
+            {hasActiveFilters && (
+              <span className="px-1.5 py-0.5 bg-indigo-600 text-white rounded-full text-[10px] font-bold">
+                Active
+              </span>
+            )}
+          </button>
           <button
             onClick={() => { resetForm(); setShowAddModal(true); }}
             className="flex items-center gap-2 px-4 sm:px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:shadow-purple-500/30 transition-all font-medium text-sm"
@@ -285,6 +429,150 @@ const TaskManager = () => {
             <span className="sm:hidden">Add</span>
           </button>
         </div>
+
+        {/* Advanced Filters Panel */}
+        {showFilters && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-700">Filter Tasks</h3>
+              {hasActiveFilters && (
+                <button
+                  onClick={resetAllFilters}
+                  className="text-xs text-purple-600 hover:text-purple-700 font-medium"
+                >
+                  Reset All
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Priority filter */}
+              <div>
+                <label className="text-xs text-gray-600 mb-1 block">Priority</label>
+                <select
+                  value={filterPriority}
+                  onChange={(e) => setFilterPriority(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                >
+                  <option value="all">All Priorities</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </div>
+              {/* Type filter */}
+              <div>
+                <label className="text-xs text-gray-600 mb-1 block">Task Type</label>
+                <select
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                >
+                  <option value="all">All Types</option>
+                  <option value="follow_up">Follow Up</option>
+                  <option value="meeting">Meeting</option>
+                  <option value="call">Call</option>
+                  <option value="viewing">Property Viewing</option>
+                  <option value="document">Documentation</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              {/* Due date from filter */}
+              <div>
+                <label className="text-xs text-gray-600 mb-1 block">Due Date From</label>
+                <input
+                  type="date"
+                  value={filterDueDateFrom}
+                  onChange={(e) => setFilterDueDateFrom(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                />
+              </div>
+              {/* Due date to filter */}
+              <div>
+                <label className="text-xs text-gray-600 mb-1 block">Due Date To</label>
+                <input
+                  type="date"
+                  value={filterDueDateTo}
+                  onChange={(e) => setFilterDueDateTo(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                />
+              </div>
+            </div>
+            
+            {/* Second row for Assigned To, Zone and Thana filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
+              {/* Assigned to filter (only for non-agents) */}
+              {user?.role !== 'agent' && agents.length > 0 && (
+                <div>
+                  <label className="text-xs text-gray-600 mb-1 block">Assigned To</label>
+                  <select
+                    value={filterAssignedTo}
+                    onChange={(e) => {
+                      setFilterAssignedTo(e.target.value);
+                      setFilterZone('all'); // Reset zone when agent changes
+                      setFilterThana('all'); // Reset thana when agent changes
+                    }}
+                    className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                  >
+                    <option value="all">All Agents</option>
+                    <option value="unassigned">Unassigned</option>
+                    {agents.map(agent => (
+                      <option key={agent._id} value={agent._id}>{agent.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {/* Zone filter */}
+              <div>
+                <label className="text-xs text-gray-600 mb-1 block">
+                  Zone
+                  {filterAssignedTo !== 'all' && filterAssignedTo !== 'unassigned' && (
+                    <span className="ml-1 text-[10px] text-purple-600">
+                      (Agent's areas)
+                    </span>
+                  )}
+                </label>
+                <select
+                  value={filterZone}
+                  onChange={(e) => {
+                    setFilterZone(e.target.value);
+                    setFilterThana('all'); // Reset thana when zone changes
+                  }}
+                  className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                >
+                  <option value="all">All Zones</option>
+                  {getAgentZones().map(zone => (
+                    <option key={zone} value={zone}>{zone}</option>
+                  ))}
+                </select>
+              </div>
+              {/* Thana filter */}
+              <div>
+                <label className="text-xs text-gray-600 mb-1 block">
+                  Thana
+                  {filterAssignedTo !== 'all' && filterAssignedTo !== 'unassigned' && filterZone !== 'all' && (
+                    <span className="ml-1 text-[10px] text-purple-600">
+                      (Agent's areas)
+                    </span>
+                  )}
+                </label>
+                <select
+                  value={filterThana}
+                  onChange={(e) => setFilterThana(e.target.value)}
+                  disabled={filterZone === 'all'}
+                  className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                >
+                  <option value="all">All Thanas</option>
+                  {getAgentThanas().map(thana => (
+                    <option key={thana} value={thana}>{thana}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="mt-3 text-xs text-gray-500">
+              Showing {filteredTasks.length} of {tasks.length} tasks
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tasks List */}
@@ -294,7 +582,7 @@ const TaskManager = () => {
         </div>
       ) : (
         <div className="space-y-3 sm:space-y-4">
-          {tasks.map((task) => (
+          {filteredTasks.map((task) => (
             <div key={task._id} className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
               <div className="flex flex-col gap-3 sm:gap-4">
                 {/* Task Header */}
@@ -377,11 +665,25 @@ const TaskManager = () => {
             </div>
           ))}
 
-          {tasks.length === 0 && (
+          {filteredTasks.length === 0 && (
             <div className="text-center py-12 bg-white rounded-2xl">
               <ClipboardDocumentListIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900">No tasks found</h3>
-              <p className="text-gray-500 mt-1">Create your first task to get started</p>
+              <h3 className="text-lg font-medium text-gray-900">
+                {tasks.length === 0 ? 'No tasks found' : 'No tasks match your filters'}
+              </h3>
+              <p className="text-gray-500 mt-1">
+                {tasks.length === 0 
+                  ? 'Create your first task to get started' 
+                  : 'Try adjusting your filters to see more tasks'}
+              </p>
+              {hasActiveFilters && (
+                <button
+                  onClick={resetAllFilters}
+                  className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
+                >
+                  Clear Filters
+                </button>
+              )}
             </div>
           )}
         </div>
